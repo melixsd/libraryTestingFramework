@@ -1,5 +1,7 @@
 # Automated Testing Framework for a Library Management Web Application
 
+[![CI](https://img.shields.io/badge/CI-GitHub_Actions-2088FF?logo=githubactions&logoColor=white)](../.github/workflows/ci.yml) [![Tests](https://img.shields.io/badge/tests-150_passed-brightgreen)](#5-current-test-suite) [![Coverage](https://img.shields.io/badge/coverage-91%25%20%28gate%2085%25%29-brightgreen)](#11-reports-and-coverage) [![Property-based](https://img.shields.io/badge/property--based-Hypothesis-9B5DE5)](#testing-techniques) [![e2e](https://img.shields.io/badge/e2e-Selenium_nightly-FF6B6B)](#continuous-integration)
+
 ## 1. Project Overview
 
 This project is a small Library Management web application used as a **System Under Test (SUT)** for a multi-level automated testing framework.
@@ -35,6 +37,8 @@ The main focus of the project is not the library application itself, but the des
 - pytest-html
 - pytest-cov
 - pytest-json-report
+- Hypothesis (property-based testing)
+- freezegun (deterministic time)
 
 ### CI/CD
 
@@ -72,12 +76,16 @@ tests/
 ├── unit/
 │   ├── test_book_service.py
 │   ├── test_borrowing_service.py
+│   ├── test_member_service.py
 │   ├── test_reservation_service.py
+│   ├── test_property_borrowing.py   # Hypothesis + freezegun invariants
 │   └── test_factories.py
 │
 ├── integration/
 │   ├── conftest.py
-│   └── test_api.py
+│   ├── test_api.py
+│   ├── test_auth_security.py        # expired/tampered/forged JWT attacks
+│   └── test_concurrency.py          # real-thread race conditions
 │
 ├── e2e/
 │   ├── pages/
@@ -92,18 +100,25 @@ tests/
 ├── conftest.py
 ├── helpers.py
 └── factories.py
+
+Legacy duplicates of the unit/integration/e2e suites are kept at the
+repository root (tests/test_borrowing_service.py, tests/test_integration.py,
+tests/test_e2e.py) for history; the organized tree above is authoritative.
 ```
 
 ## 5. Current Test Suite
 
-The current source tree contains **78 test functions**:
+The organized suite contains **119 test functions** (150 execute when legacy
+root-level duplicates are included):
 
 | Level | Tests | Purpose |
 |---|---:|---|
-| Unit | 50 | Business logic, validation, edge cases, factories |
-| Integration | 16 | HTTP API, authentication, authorization, database behavior |
-| E2E | 12 | Critical browser/user workflows |
-| **Total** | **78** | |
+| Unit | 71 | Business logic, validation, edge cases, fine/due-date property invariants, factories |
+| Integration | 35 | HTTP API, auth, RBAC, JWT security attacks, plan changes, concurrency races |
+| E2E | 13 | Critical browser/user workflows incl. membership plan switching |
+| **Total** | **119** | |
+
+Last full local run: **150 passed, 1 skipped, coverage 91.30%** (gate: 85%).
 
 The counts above are based on the current test source. They are source counts, not a claim that the suite has been executed in this environment. Regenerate execution reports after the final local run.
 
@@ -125,6 +140,21 @@ Important cases include:
 - reservation behavior
 - regression cases
 
+### Property-Based Testing (Hypothesis + freezegun)
+
+Beyond fixed examples, `tests/unit/test_property_borrowing.py` generates
+hundreds of arbitrary clocks, due dates, loan periods, and fine rates, and
+asserts the invariants that must hold for every combination:
+
+- a late return is fined exactly `days_late x daily_fine_rate` — never more, never less
+- on-time returns are never fined
+- fines are never negative and grow monotonically with lateness
+- a new loan's due date is exactly `borrow_date + loan_period_days`
+- each renewal adds exactly one loan period and increments the counter
+
+`freezegun` pins the service clock to each generated instant, making the
+tests deterministic and immune to midnight rollovers.
+
 ### Integration Testing
 
 FastAPI `TestClient` exercises the real request path through the application and an isolated in-memory SQLite database.
@@ -135,8 +165,31 @@ Examples include:
 - authentication failures
 - CRUD operations
 - borrowing and returning
+- membership plan switching (self-service, staff override, downgrade rules)
 - role-based access control
 - database constraints
+
+### Authentication Security Tests
+
+`tests/integration/test_auth_security.py` attacks the JWT layer the way an
+adversary would: expired tokens, tampered signatures, payload escalation
+without re-signing, wrong-secret tokens, the classic `alg=none` bypass,
+tokens without a subject, and valid tokens for deactivated users — all must
+be rejected with 401.
+
+### Concurrency Tests
+
+`tests/integration/test_concurrency.py` reproduces the race where two
+members borrow the last copy of a book at the same instant, using real
+threads with separate sessions against a shared file-backed SQLite database:
+
+- **Before the fix:** both requests succeeded — the physical copy was double-booked.
+- **Fix:** a partial unique index (`uq_active_borrow_per_copy`) lets the
+  database itself enforce "one active loan per copy"; the losing commit
+  raises `IntegrityError`, which the service translates into the normal
+  "no copies available" business rule.
+- **After:** exactly one borrower wins, the loser gets a clean 400, and the
+  test repeats the race five times to defeat scheduler luck.
 
 ### End-to-End Testing
 
@@ -146,8 +199,9 @@ Critical workflows include:
 
 - authentication
 - search and navigation
-- member borrowing
+- member borrowing (including self-service return)
 - reservation of an unavailable book
+- membership plan switching — the Current badge moves between plan cards
 - admin book creation
 - role-based navigation
 
@@ -204,10 +258,11 @@ The exact frontend startup command depends on the frontend project. For browser 
 
 ## 10. Running Tests
 
-Run the complete backend test suite:
+Run the complete backend test suite (coverage and the 85% gate apply
+automatically via `pytest.ini`):
 
 ```bash
-pytest tests/unit tests/integration
+pytest -m "not e2e and not selenium"
 ```
 
 Run unit tests only:
@@ -261,27 +316,31 @@ pytest tests/e2e -m e2e
 
 ## 11. Reports and Coverage
 
-Generate an HTML test report:
+Every run measures coverage (terminal + `coverage.json` + `htmlcov/`) and
+fails below 85% — the same gate CI enforces. To also produce an HTML test
+report:
 
 ```bash
-pytest tests/unit tests/integration --html=tests/reports/report.html --self-contained-html
-```
-
-Generate coverage:
-
-```bash
-pytest tests/unit tests/integration --cov=app --cov-report=term-missing --cov-report=html:tests/reports/coverage
+pytest -m "not e2e and not selenium" --html=tests/reports/report.html --self-contained-html
 ```
 
 The generated reports are intentionally not treated as source code and should be regenerated after changes.
 
 ## 12. Continuous Integration
 
-GitHub Actions is configured in `.github/workflows/tests.yml`.
+GitHub Actions is configured in `.github/workflows/ci.yml` (at the
+repository root, next to the frontend project).
 
-The CI workflow installs dependencies, runs unit and integration tests, generates coverage/report artifacts, and uploads the results.
+**On every push and pull request** the backend job installs the pinned
+dependencies and runs the unit + integration suite with the same 85%
+coverage gate enforced locally by `pytest.ini`, then uploads the coverage
+JSON, HTML coverage, and the pytest-html report as artifacts.
 
-Browser E2E tests are kept as a local execution step because they require the application servers and browser environment.
+**Nightly (03:00 UTC) and on demand** (`workflow_dispatch`) the e2e job
+seeds the database, boots the FastAPI backend and the Next.js frontend,
+lets Selenium Manager resolve a matching ChromeDriver, runs the full
+browser suite, and uploads the HTML report, failure screenshots, and both
+server logs.
 
 ## 13. Limitations
 
@@ -289,9 +348,11 @@ This is a focused university-scale testing project, not a production QA platform
 
 - load/performance testing
 - full accessibility certification
-- concurrent/race-condition testing
-- penetration testing
+- penetration testing beyond the JWT attack surface
 - production deployment infrastructure
+
+Correctness-level concurrency (the double-booking race on the last copy)
+*is* covered; what remains out of scope is throughput/load testing.
 
 Those areas are outside the project's intended scope.
 

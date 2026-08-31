@@ -17,6 +17,11 @@ class MemberCreate(BaseModel):
         return v.strip()
 
 
+class MembershipChange(BaseModel):
+    """Request body for switching a member to a different membership plan."""
+    membership_type_id: int
+
+
 class MemberOut(BaseModel):
     id: int
     full_name: str

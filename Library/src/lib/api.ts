@@ -185,6 +185,16 @@ export async function payFine(memberId: number, amount: number): Promise<MemberO
   })
 }
 
+export async function changeMembership(
+  memberId: number,
+  membershipTypeId: number,
+): Promise<MemberOut> {
+  return request<MemberOut>(`/members/${memberId}/membership`, {
+    method: "PATCH",
+    body: JSON.stringify({ membership_type_id: membershipTypeId }),
+  })
+}
+
 /* ── Borrowing ────────────────────────────────────── */
 
 export async function borrowBook(bookId: number, memberId: number): Promise<BorrowOut> {
@@ -230,8 +240,6 @@ export async function cancelReservation(reservationId: number): Promise<void> {
 /* ── Membership types ─────────────────────────────── */
 
 export async function listMembershipTypes(): Promise<MembershipTypeOut[]> {
-  // No dedicated list endpoint exists; we can get them from member data.
-  // If needed, we could add one. For now, return empty and populate from member queries.
   return request<MembershipTypeOut[]>("/membership-types")
 }
 

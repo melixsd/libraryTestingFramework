@@ -1,5 +1,5 @@
 """BorrowRecord model - borrowing record for each physical copy"""
-from sqlalchemy import Column, Integer, Float, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, Float, Boolean, DateTime, ForeignKey, Index, text
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -20,3 +20,16 @@ class BorrowRecord(Base):
 
     copy = relationship("BookCopy", back_populates="borrow_records")
     member = relationship("Member", back_populates="borrow_records")
+
+    __table_args__ = (
+        # A physical copy can be on loan to at most one member at a time.
+        # Enforced by the database so concurrent borrows of the last copy
+        # cannot both commit (the service translates the IntegrityError).
+        Index(
+            "uq_active_borrow_per_copy",
+            "copy_id",
+            unique=True,
+            sqlite_where=text("returned = 0"),
+            postgresql_where=text("returned = false"),
+        ),
+    )

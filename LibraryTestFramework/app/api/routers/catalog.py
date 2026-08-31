@@ -37,6 +37,11 @@ def create_category(data: CategoryCreate, service: CatalogService = Depends(get_
     return service.create_category(data)
 
 
+@router.get("/membership-types", response_model=list[MembershipTypeOut])
+def list_membership_types(service: CatalogService = Depends(get_catalog_service)):
+    return service.list_membership_types()
+
+
 @router.post("/membership-types", response_model=MembershipTypeOut, status_code=201, dependencies=[Depends(staff_only)])
 def create_membership_type(data: MembershipTypeCreate, service: CatalogService = Depends(get_catalog_service)):
     return service.create_membership_type(data)

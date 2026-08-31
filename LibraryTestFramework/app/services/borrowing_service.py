@@ -5,6 +5,7 @@ not directly on Session -> meaning this service can be unit-tested with fake/moc
 without a real database.
 """
 from datetime import timedelta
+from sqlalchemy.exc import IntegrityError
 from app.core.exceptions import NotFoundError, BusinessRuleError
 from app.core.time import utc_now
 from app.models import BorrowRecord, CopyStatus, ReservationStatus
@@ -65,7 +66,20 @@ class BorrowingService:
             copy_id=copy.id, member_id=member.id,
             borrow_date=utc_now(), due_date=due_date,
         )
-        return self.borrow_repo.add(record)
+        try:
+            return self.borrow_repo.add(record)
+        except IntegrityError:
+            # Another concurrent request claimed the last copy between our
+            # availability check and the commit; the partial unique index
+            # uq_active_borrow_per_copy rejected the double booking.
+            self.borrow_repo.db.rollback()
+            raise BusinessRuleError("No copies available; you can reserve the book")
+
+    def get_borrow(self, borrow_id: int) -> BorrowRecord:
+        record = self.borrow_repo.get(borrow_id)
+        if not record:
+            raise NotFoundError("Borrow record not found")
+        return record
 
     def return_book(self, borrow_id: int) -> BorrowRecord:
         record = self.borrow_repo.get(borrow_id)

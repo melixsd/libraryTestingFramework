@@ -19,6 +19,32 @@ import os
 
 Base.metadata.create_all(bind=engine)
 
+
+def _ensure_partial_indexes() -> None:
+    """Create indexes that create_all cannot add to pre-existing tables.
+
+    uq_active_borrow_per_copy enforces "one active loan per physical copy"
+    at the database level; see BorrowRecord.__table_args__.
+    """
+    from sqlalchemy import text
+    from sqlalchemy.exc import IntegrityError
+
+    try:
+        with engine.begin() as conn:
+            conn.execute(text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_active_borrow_per_copy "
+                "ON borrow_records (copy_id) WHERE returned = 0"
+            ))
+    except IntegrityError:
+        print(
+            "WARNING: could not create uq_active_borrow_per_copy — existing "
+            "borrow_records contain duplicate active loans for one copy. "
+            "Deduplicate them, then restart."
+        )
+
+
+_ensure_partial_indexes()
+
 app = FastAPI(
     title="Library Management System",
     description="Library management system with layered architecture and authentication",

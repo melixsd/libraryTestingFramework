@@ -319,3 +319,152 @@ class TestRoleAccess:
                        headers=_auth_header(token))
         assert resp.status_code == 201
         assert resp.json()["name"] == "New Author"
+
+
+# ==================================================================
+# Membership plan change
+# ==================================================================
+class TestMembershipPlanChange:
+    """Plan listing, self-service plan changes, and the downgrade rule."""
+
+    def test_list_membership_types_is_public(self, db_session):
+        from tests.helpers import _seed_membership_type, _client
+        db = db_session
+        _seed_membership_type(db, name="Regular")
+        _seed_membership_type(db, name="Premium", max_books=10, loan_period_days=30,
+                              max_renewals=3, daily_fine_rate=1.5)
+
+        c = _client()
+        resp = c.get("/membership-types")
+        assert resp.status_code == 200
+        names = [t["name"] for t in resp.json()]
+        assert "Regular" in names and "Premium" in names
+
+    def test_member_can_change_own_plan(self, db_session):
+        from tests.helpers import (
+            _seed_membership_type, _seed_member_user, _login, _auth_header, _client,
+        )
+        db = db_session
+        mt = _seed_membership_type(db, name="Regular")
+        premium = _seed_membership_type(db, name="Premium", max_books=10,
+                                        loan_period_days=30, max_renewals=3,
+                                        daily_fine_rate=1.5)
+        user, member = _seed_member_user(db, "plan_member", mt.id)
+        token = _login(_client(), "plan_member", "Member123!")
+
+        c = _client()
+        resp = c.patch(f"/members/{member.id}/membership",
+                       json={"membership_type_id": premium.id},
+                       headers=_auth_header(token))
+        assert resp.status_code == 200
+        assert resp.json()["membership_type"]["name"] == "Premium"
+
+    def test_member_cannot_change_another_members_plan(self, db_session):
+        from tests.helpers import (
+            _seed_membership_type, _seed_member_user, _login, _auth_header, _client,
+        )
+        db = db_session
+        mt = _seed_membership_type(db, name="Regular")
+        premium = _seed_membership_type(db, name="Premium", max_books=10,
+                                        loan_period_days=30, max_renewals=3,
+                                        daily_fine_rate=1.5)
+        other_user, other_member = _seed_member_user(db, "plan_owner", mt.id)
+        _seed_member_user(db, "plan_attacker", mt.id)
+        token = _login(_client(), "plan_attacker", "Member123!")
+
+        c = _client()
+        resp = c.patch(f"/members/{other_member.id}/membership",
+                       json={"membership_type_id": premium.id},
+                       headers=_auth_header(token))
+        assert resp.status_code == 403
+
+    def test_admin_can_change_members_plan(self, db_session):
+        from tests.helpers import (
+            _seed_membership_type, _seed_member_user, _seed_admin_user,
+            _login, _auth_header, _client,
+        )
+        db = db_session
+        mt = _seed_membership_type(db, name="Regular")
+        premium = _seed_membership_type(db, name="Premium", max_books=10,
+                                        loan_period_days=30, max_renewals=3,
+                                        daily_fine_rate=1.5)
+        user, member = _seed_member_user(db, "plan_target", mt.id)
+        admin = _seed_admin_user(db)
+        token = _login(_client(), admin.username, "Admin123!")
+
+        c = _client()
+        resp = c.patch(f"/members/{member.id}/membership",
+                       json={"membership_type_id": premium.id},
+                       headers=_auth_header(token))
+        assert resp.status_code == 200
+        assert resp.json()["membership_type"]["name"] == "Premium"
+
+    def test_downgrade_blocked_by_active_borrows(self, db_session):
+        from tests.helpers import (
+            _seed_membership_type, _seed_member_user, _seed_admin_user, _seed_author,
+            _seed_book_with_copies, _login, _auth_header, _client,
+        )
+        db = db_session
+        mt = _seed_membership_type(db, name="Regular", max_books=5)
+        student = _seed_membership_type(db, name="Student", max_books=3)
+        user, member = _seed_member_user(db, "downgrader", mt.id)
+        admin = _seed_admin_user(db)
+        author = _seed_author(db)
+
+        # Borrow 4 books (allowed on Regular with max_books=5).
+        for i in range(4):
+            book = _seed_book_with_copies(db, author.id, isbn=f"90{i:09d}", num_copies=1)
+            resp = _client().post("/borrow", json={
+                "book_id": book.id, "member_id": member.id,
+            }, headers=_auth_header(_login(_client(), "downgrader", "Member123!")))
+            assert resp.status_code == 201
+
+        # Switching to Student (max 3) must be rejected.
+        c = _client()
+        resp = c.patch(f"/members/{member.id}/membership",
+                       json={"membership_type_id": student.id},
+                       headers=_auth_header(_login(_client(), "downgrader", "Member123!")))
+        assert resp.status_code == 400
+        assert "active borrows" in resp.json()["detail"]
+
+    def test_change_to_same_plan_returns_400(self, db_session):
+        from tests.helpers import (
+            _seed_membership_type, _seed_member_user, _login, _auth_header, _client,
+        )
+        db = db_session
+        mt = _seed_membership_type(db, name="Regular")
+        user, member = _seed_member_user(db, "same_plan", mt.id)
+        token = _login(_client(), "same_plan", "Member123!")
+
+        c = _client()
+        resp = c.patch(f"/members/{member.id}/membership",
+                       json={"membership_type_id": mt.id},
+                       headers=_auth_header(token))
+        assert resp.status_code == 400
+        assert "already on" in resp.json()["detail"]
+
+    def test_change_to_unknown_plan_returns_404(self, db_session):
+        from tests.helpers import (
+            _seed_membership_type, _seed_member_user, _login, _auth_header, _client,
+        )
+        db = db_session
+        mt = _seed_membership_type(db, name="Regular")
+        user, member = _seed_member_user(db, "unknown_plan", mt.id)
+        token = _login(_client(), "unknown_plan", "Member123!")
+
+        c = _client()
+        resp = c.patch(f"/members/{member.id}/membership",
+                       json={"membership_type_id": 99999},
+                       headers=_auth_header(token))
+        assert resp.status_code == 404
+
+    def test_unauthenticated_plan_change_returns_401(self, db_session):
+        from tests.helpers import _seed_membership_type, _seed_member_user, _client
+        db = db_session
+        mt = _seed_membership_type(db, name="Regular")
+        user, member = _seed_member_user(db, "noauth_plan", mt.id)
+
+        c = _client()
+        resp = c.patch(f"/members/{member.id}/membership",
+                       json={"membership_type_id": mt.id})
+        assert resp.status_code == 401

@@ -7,6 +7,7 @@ import type {
   AuthorOut,
   MemberOut,
   MemberSummaryOut,
+  MembershipTypeOut,
   UserRole,
   UserOut,
   ViewName,
@@ -35,6 +36,8 @@ interface OperationStatus {
   membersError: string | null
   summaryStatus: LoadingState
   summaryError: string | null
+  membershipTypesStatus: LoadingState
+  membershipTypesError: string | null
   testResultsStatus: LoadingState
   testResultsError: string | null
 }
@@ -59,6 +62,7 @@ interface LibraryState extends AsyncSlice, OperationStatus, TestResultsSlice {
   authors: AuthorOut[]
   members: MemberOut[]
   memberSummary: MemberSummaryOut | null
+  membershipTypes: MembershipTypeOut[]
 
   // Navigation
   currentView: ViewName
@@ -85,6 +89,7 @@ interface LibraryState extends AsyncSlice, OperationStatus, TestResultsSlice {
   fetchAuthors: () => Promise<void>
   fetchMembers: () => Promise<void>
   fetchMemberSummary: () => Promise<void>
+  fetchMembershipTypes: () => Promise<void>
 
   // Actions — Navigation
   setView: (view: ViewName) => void
@@ -116,6 +121,9 @@ interface LibraryState extends AsyncSlice, OperationStatus, TestResultsSlice {
   renewBook: (borrowId: number) => Promise<void>
   reserveBook: (bookId: number) => Promise<void>
 
+  // Actions — Membership plan (member)
+  changeMembership: (membershipTypeId: number) => Promise<void>
+
   // Convenience
   isAdmin: () => boolean
 }
@@ -135,6 +143,8 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   membersError: null,
   summaryStatus: "idle",
   summaryError: null,
+  membershipTypesStatus: "idle",
+  membershipTypesError: null,
   testResultsStatus: "idle",
   testResultsError: null,
 
@@ -145,6 +155,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   authors: [],
   members: [],
   memberSummary: null,
+  membershipTypes: [],
   testResults: null,
 
   currentView: "home",
@@ -255,6 +266,17 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to fetch member summary"
       set({ summaryStatus: "error", summaryError: msg, memberSummary: null })
+    }
+  },
+
+  fetchMembershipTypes: async () => {
+    set({ membershipTypesStatus: "loading", membershipTypesError: null })
+    try {
+      const types = await api.listMembershipTypes()
+      set({ membershipTypes: types, membershipTypesStatus: "idle" })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to fetch membership plans"
+      set({ membershipTypesStatus: "error", membershipTypesError: msg })
     }
   },
 
@@ -378,6 +400,14 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     const user = get().currentUser
     if (!user?.member_id) return
     await api.reserveBook(bookId, user.member_id)
+    await get().fetchMemberSummary()
+  },
+
+  // ─── Membership plan ───────────────────────────
+  changeMembership: async (membershipTypeId) => {
+    const user = get().currentUser
+    if (!user?.member_id) return
+    await api.changeMembership(user.member_id, membershipTypeId)
     await get().fetchMemberSummary()
   },
 

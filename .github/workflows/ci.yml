@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  schedule:
+    # Nightly at 03:00 UTC — full end-to-end suite against real servers.
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  backend-tests:
+    name: Unit + integration (coverage gate)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: LibraryTestFramework
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: LibraryTestFramework/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # Coverage options (including --cov-fail-under=85) live in pytest.ini,
+      # so the gate is enforced locally exactly as in CI.
+      - name: Run tests
+        run: >
+          pytest -m "not e2e and not selenium"
+          --html=tests/reports/pytest-report.html --self-contained-html
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-reports
+          path: |
+            LibraryTestFramework/coverage.json
+            LibraryTestFramework/htmlcov/
+            LibraryTestFramework/tests/reports/pytest-report.html
+
+  e2e-nightly:
+    name: Selenium e2e (nightly)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: LibraryTestFramework/requirements.txt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: Library/package-lock.json
+
+      - name: Install backend dependencies
+        run: pip install -r requirements.txt
+        working-directory: LibraryTestFramework
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: Library
+
+      - name: Seed database
+        run: python seed_db.py
+        working-directory: LibraryTestFramework
+
+      - name: Start backend
+        run: nohup python -m uvicorn app.main:app --port 8000 > /tmp/backend.log 2>&1 &
+        working-directory: LibraryTestFramework
+
+      - name: Wait for backend
+        run: |
+          for i in $(seq 1 60); do
+            curl -sf -o /dev/null http://localhost:8000/docs && break
+            sleep 2
+          done
+          curl -sf -o /dev/null http://localhost:8000/docs
+
+      - name: Start frontend
+        run: nohup npm run dev > /tmp/frontend.log 2>&1 &
+        working-directory: Library
+
+      - name: Wait for frontend
+        run: |
+          for i in $(seq 1 90); do
+            curl -sf -o /dev/null http://localhost:3000 && break
+            sleep 2
+          done
+          curl -sf -o /dev/null http://localhost:3000
+
+      # -o addopts="" strips the coverage gate from pytest.ini: coverage cannot
+      # be measured across the separate uvicorn process the browser drives.
+      - name: Run e2e suite
+        env:
+          ALLOW_SELENIUM_MANAGER: "1"
+        run: >
+          pytest tests/e2e -m e2e -o addopts=""
+          --html=tests/reports/e2e-report.html --self-contained-html
+        working-directory: LibraryTestFramework
+
+      - name: Upload e2e reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-reports
+          path: |
+            LibraryTestFramework/tests/reports/e2e-report.html
+            LibraryTestFramework/tests/e2e/screenshots/
+            /tmp/backend.log
+            /tmp/frontend.log

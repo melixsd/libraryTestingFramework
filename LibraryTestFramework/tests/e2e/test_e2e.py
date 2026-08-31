@@ -94,15 +94,19 @@ def driver():
     if chromedriver_path:
         service = ChromeService(executable_path=chromedriver_path)
         driver = webdriver.Chrome(service=service, options=options)
+    elif os.getenv("ALLOW_SELENIUM_MANAGER"):
+        # CI convenience: let Selenium Manager resolve a matching chromedriver
+        # (requires internet). Local restricted environments keep failing fast.
+        driver = webdriver.Chrome(options=options)
     else:
         # Selenium Manager may attempt an internet download. In restricted
         # environments that can fail with HTTP 403 and waste ~30 seconds per
         # test. Fail once with an actionable setup message instead.
         raise pytest.UsageError(
             "ChromeDriver was not found. Set CHROMEDRIVER_PATH to a compatible "
-            "chromedriver.exe, put chromedriver.exe on PATH, or place it under "
-            "tools/chromedriver.exe. Selenium Manager was intentionally not "
-            "used because it requires downloading from the internet in this setup."
+            "chromedriver.exe, put chromedriver.exe on PATH, place it under "
+            "tools/chromedriver.exe, or set ALLOW_SELENIUM_MANAGER=1 to let "
+            "Selenium Manager download a matching driver."
         )
     # Use explicit waits in Page Objects rather than mixing implicit and explicit waits.
     driver.implicitly_wait(0)
@@ -431,4 +435,55 @@ class TestMemberWorkflows:
             login_page.screenshot("admin_create_book_workflow")
             raise
         finally:
+            login_page.logout()
+
+
+class TestMembershipPlanChange:
+    """Membership plan switching through the member profile page."""
+
+    def test_member_can_switch_plan_and_back(self, login_page, home_page):
+        """Member switches to another plan, sees the Current badge move, switches back."""
+        from tests.e2e.pages.member_page import MemberPage
+        from selenium.webdriver.support.ui import WebDriverWait
+
+        login_page.load().login("member3", "Member123!")
+        member_page = None
+        original_plan = None
+        try:
+            member_page = MemberPage(login_page.driver).navigate()
+
+            # All seeded plans render as comparable cards.
+            WebDriverWait(login_page.driver, 15).until(
+                lambda d: len(member_page.get_plan_ids()) >= 3
+            )
+            plan_ids = member_page.get_plan_ids()
+            assert len(plan_ids) >= 3, "The plans section should list every seeded plan"
+
+            original_plan = member_page.get_current_plan_id()
+            assert original_plan is not None, "The current plan should carry the Current badge"
+
+            target = next(pid for pid in plan_ids if pid != original_plan)
+            member_page.switch_to_plan(target)
+            member_page.wait_for_current_plan(target)
+
+            # The previous plan now offers a way back.
+            member_page.wait_for_clickable(
+                (f'[data-testid="btn-switch-plan-{original_plan}"]',)
+            )
+
+            # Switch back so repeated runs start from the same state.
+            member_page.switch_to_plan(original_plan)
+            member_page.wait_for_current_plan(original_plan)
+        except Exception:
+            login_page.screenshot("member_plan_change_workflow")
+            raise
+        finally:
+            # Restore the original plan if a mid-test failure left it changed.
+            if member_page is not None and original_plan is not None:
+                try:
+                    if member_page.get_current_plan_id() != original_plan:
+                        member_page.switch_to_plan(original_plan)
+                        member_page.wait_for_current_plan(original_plan, timeout=8)
+                except Exception:
+                    pass
             login_page.logout()

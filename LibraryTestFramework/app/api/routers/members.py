@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends
-from app.schemas.member import MemberCreate, MemberOut, MemberSummaryOut
+from fastapi import APIRouter, Depends, HTTPException
+from app.schemas.member import MemberCreate, MemberOut, MemberSummaryOut, MembershipChange
 from app.services.member_service import MemberService
 from app.api.deps import get_member_service, require_roles, get_current_user
 from app.core.exceptions import NotFoundError
@@ -37,3 +37,20 @@ def get_my_summary(
 @router.post("/{member_id}/pay-fine", response_model=MemberOut, dependencies=[Depends(staff_only)])
 def pay_fine(member_id: int, amount: float, service: MemberService = Depends(get_member_service)):
     return service.pay_fine(member_id, amount)
+
+
+@router.patch("/{member_id}/membership", response_model=MemberOut)
+def change_membership(
+    member_id: int,
+    data: MembershipChange,
+    service: MemberService = Depends(get_member_service),
+    current_user: User = Depends(get_current_user),
+):
+    # Staff may change any member's plan; members may change only their own.
+    if current_user.role not in (UserRole.ADMIN, UserRole.LIBRARIAN):
+        if current_user.member_id is None or current_user.member_id != member_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have permission to perform this operation",
+            )
+    return service.change_membership(member_id, data.membership_type_id)

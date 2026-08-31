@@ -1,0 +1,3 @@
+# Runtime databases (regenerated; the app under test uses LibraryTestFramework/seed_db.py)
+Library/prisma/dev.db
+Library/server.log

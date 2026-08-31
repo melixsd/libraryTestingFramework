@@ -44,6 +44,9 @@ class CatalogService:
     def create_membership_type(self, data: MembershipTypeCreate) -> MembershipType:
         return self.membership_repo.add(MembershipType(**data.model_dump()))
 
+    def list_membership_types(self) -> list[MembershipType]:
+        return self.membership_repo.get_all()
+
     def get_membership_type(self, id: int) -> MembershipType:
         mt = self.membership_repo.get(id)
         if not mt:

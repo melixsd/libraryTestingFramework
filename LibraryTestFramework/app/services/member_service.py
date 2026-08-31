@@ -35,6 +35,32 @@ class MemberService:
         self.member_repo.db.refresh(member)
         return member
 
+    def change_membership(self, member_id: int, new_type_id: int) -> Member:
+        """Switch a member to a different membership plan.
+
+        A downgrade is rejected while the member's active borrows exceed the
+        target plan's borrowing limit; upgrades are always allowed.
+        """
+        member = self.get_member(member_id)
+        new_type = self.membership_repo.get(new_type_id)
+        if not new_type:
+            raise NotFoundError("Membership type not found")
+        if member.membership_type_id == new_type_id:
+            raise BusinessRuleError(f"Member is already on the {new_type.name} plan")
+
+        active_borrows = self.member_repo.active_borrow_count(member_id)
+        if active_borrows > new_type.max_books:
+            raise BusinessRuleError(
+                f"Cannot switch to the {new_type.name} plan: the member has "
+                f"{active_borrows} active borrows, exceeding its limit of "
+                f"{new_type.max_books} books. Some books must be returned first."
+            )
+
+        member.membership_type_id = new_type_id
+        self.member_repo.db.commit()
+        self.member_repo.db.refresh(member)
+        return member
+
     def get_member_summary(self, member_id: int) -> dict:
         member = self.get_member(member_id)
         active_borrows = [b for b in self.member_repo.get_borrows_by_member(member_id) if not b.returned]

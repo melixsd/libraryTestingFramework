@@ -1,6 +1,10 @@
 """
 Selenium E2E tests for the Library Management System frontend.
 
+Legacy suite kept for reference; the maintained Page-Object suite lives in
+tests/e2e/test_e2e.py. These tests additionally require the webdriver-manager
+package and are skipped automatically when it is not installed.
+
 These tests require:
   1. The backend running at http://localhost:8000
   2. The frontend running at http://localhost:3000
@@ -18,7 +22,13 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
+
+pytest.importorskip(
+    "webdriver_manager",
+    reason="Legacy selenium suite requires webdriver-manager; "
+           "the maintained suite lives in tests/e2e/",
+)
+from webdriver_manager.chrome import ChromeDriverManager  # noqa: E402
 
 
 BASE_URL = "http://localhost:3000"
