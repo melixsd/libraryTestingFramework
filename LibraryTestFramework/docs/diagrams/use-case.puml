@@ -1,0 +1,26 @@
+@startuml
+left to right direction
+actor Member
+actor Admin
+rectangle "Library Management System" {
+  usecase "Login" as login
+  usecase "Search books" as search
+  usecase "View book" as view
+  usecase "Borrow book" as borrow
+  usecase "Reserve book" as reserve
+  usecase "Return book" as ret
+  usecase "Manage books" as books
+  usecase "Manage authors" as authors
+  usecase "Manage members" as members
+}
+Member --> login
+Member --> search
+Member --> view
+Member --> borrow
+Member --> reserve
+Member --> ret
+Admin --> login
+Admin --> books
+Admin --> authors
+Admin --> members
+@enduml

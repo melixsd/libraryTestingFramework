@@ -1,0 +1,19 @@
+@startuml
+rectangle pytest
+rectangle "Unit Tests" as U
+rectangle "Integration Tests" as I
+rectangle "E2E Tests" as E
+rectangle "unittest.mock" as M
+rectangle "FastAPI TestClient" as T
+rectangle "Isolated SQLite" as D
+rectangle Selenium as S
+rectangle "Page Object Model" as P
+pytest --> U
+pytest --> I
+pytest --> E
+U --> M
+I --> T
+T --> D
+E --> S
+S --> P
+@enduml

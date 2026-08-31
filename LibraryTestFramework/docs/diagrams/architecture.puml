@@ -1,0 +1,8 @@
+@startuml
+skinparam componentStyle rectangle
+[Frontend] --> [FastAPI Routers]
+[FastAPI Routers] --> [Service Layer]
+[Service Layer] --> [Repository Layer]
+[Repository Layer] --> [SQLAlchemy]
+[SQLAlchemy] --> [SQLite]
+@enduml
