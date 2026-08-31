@@ -15,6 +15,7 @@ import {
 } from "lucide-react"
 import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
+import { springSoft, springSnappy, fadeUp, staggerContainer } from "@/lib/motion"
 
 export function TestResultsPage() {
   const testResults = useLibraryStore((s) => s.testResults)
@@ -44,15 +45,19 @@ export function TestResultsPage() {
     >
       {/* Header */}
       <motion.section
-        initial={{ opacity: 0, y: 8 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
+        transition={springSoft}
         className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
       >
         <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-card sm:h-14 sm:w-14">
+          <motion.div
+            whileHover={{ rotate: -3, scale: 1.05 }}
+            transition={springSoft}
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-card sm:h-14 sm:w-14"
+          >
             <TestTube className="h-6 w-6 sm:h-7 sm:w-7" />
-          </div>
+          </motion.div>
           <div>
             <h1 className="font-serif text-[1.75rem] font-semibold tracking-tight sm:text-[2rem]">Test Results</h1>
             <p className="mt-0.5 text-sm text-muted-foreground">
@@ -60,15 +65,18 @@ export function TestResultsPage() {
             </p>
           </div>
         </div>
-        <button
+        <motion.button
           onClick={handleRunTests}
           disabled={isRunning}
+          whileHover={{ scale: isRunning ? 1 : 1.03 }}
+          whileTap={{ scale: isRunning ? 1 : 0.96 }}
+          transition={springSnappy}
           data-testid="btn-run-tests"
           className={cn(
-            "inline-flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium shadow-card transition-lift",
+            "inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium shadow-card transition-colors",
             isRunning
               ? "bg-primary/80 text-primary-foreground opacity-70"
-              : "bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-lifted",
+              : "bg-primary text-primary-foreground hover:bg-primary/90",
           )}
         >
           {isRunning ? (
@@ -82,14 +90,15 @@ export function TestResultsPage() {
               Run Tests
             </>
           )}
-        </button>
+        </motion.button>
       </motion.section>
 
       {/* Error state */}
       {testResultsStatus === "error" && !isRunning && (
         <motion.div
-          initial={{ opacity: 0, y: -4 }}
+          initial={{ opacity: 0, y: -6 }}
           animate={{ opacity: 1, y: 0 }}
+          transition={springSoft}
           className="mb-6 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 dark:border-rose-900 dark:bg-rose-950/30"
         >
           <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600 dark:text-rose-400" />
@@ -101,7 +110,8 @@ export function TestResultsPage() {
           </div>
           <button
             onClick={() => fetchTestResults()}
-            className="shrink-0 rounded-md p-1 text-rose-600 hover:bg-rose-100 dark:text-rose-400 dark:hover:bg-rose-900/40"
+            className="shrink-0 cursor-pointer rounded-md p-1 text-rose-600 transition-colors hover:bg-rose-100 dark:text-rose-400 dark:hover:bg-rose-900/40"
+            aria-label="Retry"
           >
             <RefreshCw className="h-4 w-4" />
           </button>
@@ -119,14 +129,19 @@ export function TestResultsPage() {
       {/* Empty state (no test run yet) */}
       {testResultsStatus !== "loading" && !testResults && testResultsStatus !== "error" && (
         <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
+          variants={fadeUp}
+          initial="hidden"
+          animate="show"
+          custom={2}
           className="flex flex-col items-center rounded-2xl border border-dashed border-border bg-card/40 px-6 py-20 text-center"
         >
-          <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10">
+          <motion.div
+            animate={{ y: [0, -6, 0] }}
+            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-primary/10"
+          >
             <TestTube className="h-10 w-10 text-primary/40" />
-          </div>
+          </motion.div>
           <h2 className="font-serif text-xl font-semibold">No test results yet</h2>
           <p className="mt-2 max-w-sm text-sm text-muted-foreground">
             The test suite has not been run yet. Click the &quot;Run Tests&quot; button above to
@@ -138,8 +153,9 @@ export function TestResultsPage() {
       {/* Running overlay */}
       {isRunning && testResults && (
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
+          initial={{ opacity: 0, y: -4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={springSoft}
           className="mb-6 flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3"
         >
           <Loader2 className="h-4 w-4 animate-spin text-primary" />
@@ -152,9 +168,9 @@ export function TestResultsPage() {
         <>
           {/* Last run info */}
           <motion.div
-            initial={{ opacity: 0, y: 6 }}
+            initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25, delay: 0.05 }}
+            transition={{ ...springSoft, delay: 0.05 }}
             className="mb-6 flex flex-wrap items-center gap-2 text-sm text-muted-foreground"
           >
             <Clock className="h-4 w-4" />
@@ -169,7 +185,12 @@ export function TestResultsPage() {
           </motion.div>
 
           {/* Stat cards */}
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <motion.div
+            variants={staggerContainer}
+            initial="hidden"
+            animate="show"
+            className="grid grid-cols-2 gap-4 sm:grid-cols-4"
+          >
             <StatCard
               testId="test-stat-passed"
               label="Passed"
@@ -202,19 +223,19 @@ export function TestResultsPage() {
               color="primary"
               icon={TestTube}
             />
-          </div>
+          </motion.div>
 
           {/* Coverage bar */}
           {testResults.coverage_percent !== null && (
             <motion.div
-              initial={{ opacity: 0, y: 6 }}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.25, delay: 0.15 }}
+              transition={{ ...springSoft, delay: 0.15 }}
               className="mt-6 rounded-xl border border-border bg-card p-6 shadow-card"
             >
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="font-serif text-base font-semibold tracking-tight">Test Coverage</h3>
-                <span className="text-2xl font-semibold text-primary">
+                <span className="font-serif text-2xl font-semibold text-primary">
                   {testResults.coverage_percent.toFixed(1)}%
                 </span>
               </div>
@@ -233,7 +254,7 @@ export function TestResultsPage() {
                   )}
                   initial={{ width: 0 }}
                   animate={{ width: `${Math.min(testResults.coverage_percent, 100)}%` }}
-                  transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
+                  transition={{ duration: 0.9, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
                 />
               </div>
             </motion.div>
@@ -242,20 +263,23 @@ export function TestResultsPage() {
           {/* Report link */}
           {testResults.report_path && (
             <motion.div
-              initial={{ opacity: 0, y: 6 }}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.25, delay: 0.25 }}
+              transition={{ ...springSoft, delay: 0.25 }}
               className="mt-6"
             >
-              <a
+              <motion.a
                 href={`http://localhost:8000${testResults.report_path}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-5 py-3 text-sm font-medium shadow-card transition-smooth hover:border-primary/30 hover:bg-accent"
+                whileHover={{ y: -2 }}
+                whileTap={{ scale: 0.98 }}
+                transition={springSnappy}
+                className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-border bg-card px-5 py-3 text-sm font-medium shadow-card transition-colors hover:border-primary/30 hover:bg-accent"
               >
                 <ExternalLink className="h-4 w-4" />
                 View full HTML report
-              </a>
+              </motion.a>
             </motion.div>
           )}
         </>
@@ -304,8 +328,12 @@ function StatCard({
   const cls = colorClasses[color]
 
   return (
-    <div
-      className={cn("rounded-xl border bg-card p-4 shadow-card transition-smooth", cls.border)}
+    <motion.div
+      variants={{
+        hidden: { opacity: 0, y: 14 },
+        show: { opacity: 1, y: 0, transition: springSoft },
+      }}
+      className={cn("rounded-xl border bg-card p-4 shadow-card", cls.border)}
       data-testid={testId}
     >
       <div className="mb-2.5 flex items-center justify-between">
@@ -320,6 +348,6 @@ function StatCard({
           {((value / total) * 100).toFixed(1)}% of total
         </p>
       )}
-    </div>
+    </motion.div>
   )
 }

@@ -16,10 +16,6 @@ const sizeMap = {
   xl: "h-80 w-56 text-base",
 }
 
-/**
- * A CSS-rendered book cover. Avoids network image dependencies and
- * gives every book a distinctive, library-catalogue look.
- */
 export function BookCover({ book, className, size = "md" }: BookCoverProps) {
   return (
     <div
@@ -29,7 +25,7 @@ export function BookCover({ book, className, size = "md" }: BookCoverProps) {
         className,
       )}
       style={{
-        background: `linear-gradient(145deg, ${book.coverColor}, ${book.coverColor})`,
+        background: `linear-gradient(150deg, ${book.coverColor} 0%, ${book.coverColor} 55%, color-mix(in oklab, ${book.coverColor}, black 14%) 100%)`,
         color: book.coverAccent,
       }}
       aria-label={`Cover of ${book.title}`}
@@ -41,7 +37,7 @@ export function BookCover({ book, className, size = "md" }: BookCoverProps) {
       />
       <div className="flex flex-1 flex-col justify-center text-center">
         <div
-          className="mx-auto mb-1.5 font-serif text-[0.65em] uppercase tracking-[0.2em] opacity-60"
+          className="mx-auto mb-1.5 font-serif text-[0.65em] uppercase tracking-[0.22em] opacity-60"
           style={{ color: book.coverAccent }}
         >
           {book.authorName.split(" ").slice(-1)[0]}
@@ -66,7 +62,15 @@ export function BookCover({ book, className, size = "md" }: BookCoverProps) {
         className="pointer-events-none absolute inset-0 opacity-15"
         style={{
           background:
-            "radial-gradient(circle at 30% 15%, rgba(255,255,255,0.2) 0%, transparent 45%), radial-gradient(circle at 80% 85%, rgba(0,0,0,0.1) 0%, transparent 40%)",
+            "radial-gradient(circle at 30% 15%, rgba(255,255,255,0.22) 0%, transparent 45%), radial-gradient(circle at 80% 85%, rgba(0,0,0,0.12) 0%, transparent 40%)",
+        }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 left-1/2 w-8 -translate-x-1/2 opacity-10"
+        style={{
+          background:
+            "linear-gradient(to right, transparent, rgba(255,255,255,0.35), transparent)",
         }}
       />
     </div>

@@ -8,9 +8,12 @@ import {
   Hash,
   Loader2,
   RefreshCw,
+  CalendarClock,
+  Tag,
 } from "lucide-react"
 import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
+import { springSoft, springSnappy, fadeUp } from "@/lib/motion"
 import { useMemo, useState } from "react"
 
 export function BookDetailPage() {
@@ -26,7 +29,6 @@ export function BookDetailPage() {
   const [borrowing, setBorrowing] = useState(false)
   const [reserving, setReserving] = useState(false)
 
-  // Related books: same genre or same authors
   const relatedBooks = useMemo(() => {
     if (!book) return []
     const authorIds = new Set(book.authors.map((a) => a.id))
@@ -44,7 +46,7 @@ export function BookDetailPage() {
         <p className="text-muted-foreground">Loading book...</p>
         <button
           onClick={() => setView("home")}
-          className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+          className="mt-4 cursor-pointer rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
         >
           Back to browse
         </button>
@@ -81,31 +83,37 @@ export function BookDetailPage() {
       className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8"
       data-testid="book-detail-page"
     >
-      <button
+      <motion.button
         onClick={() => setView("home")}
-        className="mb-8 inline-flex items-center gap-2 text-sm text-muted-foreground transition-smooth hover:gap-3 hover:text-foreground"
+        whileHover={{ x: -3 }}
+        transition={springSnappy}
+        className="mb-8 inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
         data-testid="btn-back-to-catalogue"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to catalogue
-      </button>
+      </motion.button>
 
       <motion.div
-        initial={{ opacity: 0, y: 8 }}
+        initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
+        transition={springSoft}
         className="grid grid-cols-1 gap-10 lg:grid-cols-[300px_1fr]"
       >
         <div className="lg:sticky lg:top-24 lg:h-fit">
-          <div className="flex justify-center">
-            <BookCover
-              book={book}
-              size="xl"
-              className="shadow-lifted"
-            />
-          </div>
+          <motion.div
+            whileHover={{ y: -8, rotate: -1 }}
+            transition={springSoft}
+            className="flex origin-bottom justify-center"
+          >
+            <BookCover book={book} size="xl" className="shadow-float" />
+          </motion.div>
 
-          <div
+          <motion.div
+            variants={fadeUp}
+            initial="hidden"
+            animate="show"
+            custom={2}
             className="mt-6 rounded-xl border border-border bg-card p-5 shadow-card"
             data-testid="availability-card"
           >
@@ -136,28 +144,32 @@ export function BookDetailPage() {
             </div>
 
             <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-              <div
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${Math.max(availabilityRatio * 100, 4)}%` }}
+                transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
                 className={cn(
-                  "h-full rounded-full transition-all",
+                  "h-full rounded-full",
                   availabilityRatio === 0
                     ? "bg-rose-500"
                     : availabilityRatio < 0.34
                       ? "bg-amber-500"
                       : "bg-emerald-500",
                 )}
-                style={{ width: `${Math.max(availabilityRatio * 100, 4)}%` }}
                 data-testid="availability-bar"
               />
             </div>
 
-            {/* Action buttons */}
             <div className="mt-5 flex gap-2">
               {available && currentUser?.role === "member" && (
-                <button
+                <motion.button
                   onClick={handleBorrow}
                   disabled={borrowing}
+                  whileHover={{ scale: borrowing ? 1 : 1.02 }}
+                  whileTap={{ scale: borrowing ? 1 : 0.97 }}
+                  transition={springSnappy}
                   data-testid="btn-borrow"
-                  className="flex-1 rounded-lg bg-primary px-4 py-3 text-sm font-medium text-primary-foreground shadow-card transition-lift hover:bg-primary/90 hover:shadow-lifted disabled:opacity-50"
+                  className="flex-1 cursor-pointer rounded-lg bg-primary px-4 py-3 text-sm font-medium text-primary-foreground shadow-card transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {borrowing ? (
                     <span className="flex items-center justify-center gap-2">
@@ -166,14 +178,17 @@ export function BookDetailPage() {
                   ) : (
                     "Borrow this book"
                   )}
-                </button>
+                </motion.button>
               )}
               {!available && currentUser?.role === "member" && (
-                <button
+                <motion.button
                   onClick={handleReserve}
                   disabled={reserving}
+                  whileHover={{ scale: reserving ? 1 : 1.02 }}
+                  whileTap={{ scale: reserving ? 1 : 0.97 }}
+                  transition={springSnappy}
                   data-testid="btn-reserve"
-                  className="flex-1 rounded-lg bg-primary px-4 py-3 text-sm font-medium text-primary-foreground shadow-card transition-lift hover:bg-primary/90 hover:shadow-lifted disabled:opacity-50"
+                  className="flex-1 cursor-pointer rounded-lg bg-primary px-4 py-3 text-sm font-medium text-primary-foreground shadow-card transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {reserving ? (
                     <span className="flex items-center justify-center gap-2">
@@ -182,7 +197,7 @@ export function BookDetailPage() {
                   ) : (
                     "Reserve next copy"
                   )}
-                </button>
+                </motion.button>
               )}
               {!currentUser && (
                 <p className="flex-1 text-center text-xs text-muted-foreground">
@@ -190,7 +205,7 @@ export function BookDetailPage() {
                 </p>
               )}
             </div>
-          </div>
+          </motion.div>
         </div>
 
         {/* Book info */}
@@ -211,26 +226,36 @@ export function BookDetailPage() {
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <span className="text-xs uppercase tracking-[0.1em] text-muted-foreground/70">by</span>
             {book.authors.map((author) => (
-              <button
+              <motion.button
                 key={author.id}
+                whileHover={{ y: -1 }}
+                transition={springSnappy}
                 onClick={() => selectAuthor(author.id)}
-                className="inline-flex items-center gap-1 font-serif text-lg text-primary transition-smooth hover:underline hover:underline-offset-4"
+                className="cursor-pointer font-serif text-lg text-primary transition-colors hover:underline hover:underline-offset-4"
                 data-testid={`author-link-${author.id}`}
               >
                 {author.name}
-              </button>
+              </motion.button>
             ))}
           </div>
 
           {book.description && (
-            <p className="mt-7 max-w-2xl text-[15px] leading-[1.7] text-foreground/85">
+            <p className="mt-7 max-w-2xl text-[15px] leading-[1.75] text-foreground/85">
               {book.description}
             </p>
           )}
 
-          <div className="mt-10 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3">
+          <motion.div
+            variants={{
+              hidden: {},
+              show: { transition: { staggerChildren: 0.06 } },
+            }}
+            initial="hidden"
+            animate="show"
+            className="mt-10 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3"
+          >
             <MetaItem
-              icon={BookOpen}
+              icon={CalendarClock}
               label="Published"
               value={book.publication_year ? String(book.publication_year) : "N/A"}
             />
@@ -240,10 +265,9 @@ export function BookDetailPage() {
               value={`${book.total_copies} total`}
             />
             <MetaItem icon={Hash} label="ISBN" value={book.isbn} />
-            <MetaItem icon={BookOpen} label="Price" value={`$${book.price.toFixed(2)}`} />
-          </div>
+            <MetaItem icon={Tag} label="Price" value={`$${book.price.toFixed(2)}`} />
+          </motion.div>
 
-          {/* Authors section */}
           {book.authors.length > 0 && (
             <div className="mt-10 rounded-xl border border-border bg-card p-6 shadow-card">
               <h2 className="mb-4 text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/80">
@@ -251,10 +275,12 @@ export function BookDetailPage() {
               </h2>
               <div className="space-y-2">
                 {book.authors.map((author) => (
-                  <button
+                  <motion.button
                     key={author.id}
+                    whileHover={{ x: 4 }}
+                    transition={springSnappy}
                     onClick={() => selectAuthor(author.id)}
-                    className="flex w-full items-center gap-3.5 rounded-lg p-2.5 text-left transition-smooth hover:bg-accent/40"
+                    className="flex w-full cursor-pointer items-center gap-3.5 rounded-lg p-2.5 text-left transition-colors hover:bg-accent/40"
                     data-testid={`author-card-${author.id}`}
                   >
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary/80 text-sm font-semibold text-secondary-foreground">
@@ -278,13 +304,12 @@ export function BookDetailPage() {
                     <span className="ml-auto text-xs font-medium text-primary">
                       View profile
                     </span>
-                  </button>
+                  </motion.button>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Related books */}
           {relatedBooks.length > 0 && (
             <div className="mt-12">
               <h2 className="mb-5 font-serif text-xl font-semibold tracking-tight">
@@ -294,17 +319,21 @@ export function BookDetailPage() {
                 className="grid grid-cols-3 gap-x-4 gap-y-5 sm:grid-cols-5"
                 data-testid="related-books"
               >
-                {relatedBooks.slice(0, 5).map((b) => (
-                  <button
+                {relatedBooks.slice(0, 5).map((b, i) => (
+                  <motion.button
                     key={b.id}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ ...springSoft, delay: 0.1 + i * 0.06 }}
+                    whileHover={{ y: -5 }}
                     onClick={() => selectBook(b.id)}
-                    className="group text-left transition-lift"
+                    className="group cursor-pointer text-left"
                     data-testid={`related-book-${b.id}`}
                   >
                     <BookCover
                       book={b}
                       size="sm"
-                      className="w-full transition-lift group-hover:-translate-y-1 group-hover:shadow-lifted"
+                      className="w-full group-hover:shadow-lifted"
                     />
                     <p className="mt-2.5 line-clamp-1 text-xs font-medium tracking-tight">
                       {b.title}
@@ -312,7 +341,7 @@ export function BookDetailPage() {
                     <p className="line-clamp-1 text-[10px] text-muted-foreground">
                       {b.authorName}
                     </p>
-                  </button>
+                  </motion.button>
                 ))}
               </div>
             </div>
@@ -333,7 +362,13 @@ function MetaItem({
   value: string
 }) {
   return (
-    <div className="flex items-start gap-3">
+    <motion.div
+      variants={{
+        hidden: { opacity: 0, y: 10 },
+        show: { opacity: 1, y: 0, transition: springSoft },
+      }}
+      className="flex items-start gap-3"
+    >
       <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-secondary/60 text-secondary-foreground">
         <Icon className="h-3.5 w-3.5" />
       </div>
@@ -343,6 +378,6 @@ function MetaItem({
         </p>
         <p className="truncate text-sm font-medium">{value}</p>
       </div>
-    </div>
+    </motion.div>
   )
 }

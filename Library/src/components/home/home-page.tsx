@@ -1,9 +1,11 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useMemo } from "react"
 import { useLibraryStore } from "@/store/library-store"
 import { BookCover } from "@/components/shared/book-cover"
+import { CountUp } from "@/components/shared/count-up"
 import { cn } from "@/lib/utils"
+import { fadeUp, springSoft, springSnappy, staggerContainer } from "@/lib/motion"
 import {
   Search,
   SlidersHorizontal,
@@ -11,9 +13,9 @@ import {
   X,
   Library,
   Loader2,
+  Sparkles,
 } from "lucide-react"
 import { motion } from "framer-motion"
-import { useMemo } from "react"
 
 export function HomePage() {
   const allBooks = useLibraryStore((s) => s.books)
@@ -31,7 +33,6 @@ export function HomePage() {
   const selectBook = useLibraryStore((s) => s.selectBook)
   const fetchBooks = useLibraryStore((s) => s.fetchBooks)
 
-  // Debounced server-side search
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchBooks(searchQuery || undefined)
@@ -39,13 +40,11 @@ export function HomePage() {
     return () => clearTimeout(timer)
   }, [searchQuery, fetchBooks])
 
-  // Get unique genres from books
   const allGenres = useMemo(() => {
     const genreSet = new Set(allBooks.map((b) => b.genre))
     return Array.from(genreSet).sort()
   }, [allBooks])
 
-  // Client-side filter for genre and availability (server handles text search)
   const filteredBooks = useMemo(() => {
     return allBooks.filter((book) => {
       if (selectedGenres.length > 0 && !selectedGenres.includes(book.genre)) {
@@ -71,39 +70,78 @@ export function HomePage() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       {/* Hero */}
-      <section
-        className="mb-10 overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary via-primary to-primary/90 px-6 py-10 text-primary-foreground shadow-lifted sm:px-12 sm:py-16"
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={springSoft}
+        className="relative mb-10 overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary via-primary to-primary/90 px-6 py-10 text-primary-foreground shadow-lifted sm:px-12 sm:py-16"
         data-testid="home-hero"
       >
-        <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+        <motion.div
+          aria-hidden
+          animate={{ y: [0, -10, 0], rotate: [0, 2, 0] }}
+          transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute -right-10 -top-14 h-56 w-56 rounded-full bg-accent/10 blur-2xl"
+        />
+        <motion.div
+          aria-hidden
+          animate={{ y: [0, 12, 0] }}
+          transition={{ duration: 11, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute -bottom-20 left-1/3 h-48 w-48 rounded-full bg-primary-foreground/8 blur-2xl"
+        />
+        <div className="relative flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
-            <span className="inline-flex items-center gap-2 rounded-full bg-primary-foreground/12 px-3.5 py-1.5 text-[11px] uppercase tracking-[0.2em] backdrop-blur-sm">
-              <Library className="h-3.5 w-3.5" />
+            <motion.span
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ ...springSoft, delay: 0.1 }}
+              className="inline-flex items-center gap-2 rounded-full bg-primary-foreground/12 px-3.5 py-1.5 text-[11px] uppercase tracking-[0.2em] backdrop-blur-sm"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
               The Aldenwood Collection
-            </span>
-            <h1
+            </motion.span>
+            <motion.h1
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ...springSoft, delay: 0.16 }}
               className="mt-5 font-serif text-[2rem] font-semibold leading-[1.1] tracking-tightest sm:text-5xl"
               data-testid="home-title"
             >
-              {allBooks.length} volumes in our collection, ready for you to explore.
-            </h1>
-            <p className="mt-5 max-w-lg text-sm leading-relaxed text-primary-foreground/75 sm:text-base">
+              <CountUp value={allBooks.length} /> volumes on our shelves, waiting for your next read.
+            </motion.h1>
+            <motion.p
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ...springSoft, delay: 0.24 }}
+              className="mt-5 max-w-lg text-sm leading-relaxed text-primary-foreground/75 sm:text-base"
+            >
               Browse the catalogue, borrow a book, or follow your favourite
-              author. Every title has been hand-chosen by our librarians.
-            </p>
+              author. Every title has been hand-picked by our librarians.
+            </motion.p>
           </div>
-          <div className="flex gap-8 text-primary-foreground/85">
-            <Stat label="Titles" value={allBooks.length} />
+          <motion.div
+            variants={staggerContainer}
+            initial="hidden"
+            animate="show"
+            className="flex gap-8 text-primary-foreground/85"
+          >
+            <HeroStat label="Titles" value={allBooks.length} />
             <div className="w-px self-stretch bg-primary-foreground/15" />
-            <Stat label="Available" value={totalAvailable} />
+            <HeroStat label="Available" value={totalAvailable} />
             <div className="w-px self-stretch bg-primary-foreground/15" />
-            <Stat label="Authors" value={authorCount} />
-          </div>
+            <HeroStat label="Authors" value={authorCount} />
+          </motion.div>
         </div>
-      </section>
+      </motion.section>
 
       {/* Search bar */}
-      <section className="mb-8" data-testid="search-section">
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ ...springSoft, delay: 0.12 }}
+        className="mb-8"
+        data-testid="search-section"
+      >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -116,14 +154,19 @@ export function HomePage() {
               aria-label="Search books"
             />
             {searchQuery && (
-              <button
+              <motion.button
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                whileTap={{ scale: 0.88 }}
+                transition={springSnappy}
                 onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer rounded-full p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
                 aria-label="Clear search"
                 data-testid="search-clear"
               >
                 <X className="h-4 w-4" />
-              </button>
+              </motion.button>
             )}
           </div>
 
@@ -133,19 +176,27 @@ export function HomePage() {
                 key={field}
                 onClick={() => setSearchField(field)}
                 data-testid={`search-field-${field}`}
+                aria-pressed={searchField === field}
                 className={cn(
-                  "rounded-lg px-3.5 py-2 text-xs font-medium capitalize transition-smooth",
+                  "relative cursor-pointer rounded-lg px-3.5 py-2 text-xs font-medium capitalize transition-smooth",
                   searchField === field
-                    ? "bg-primary text-primary-foreground shadow-sm"
+                    ? "text-primary-foreground"
                     : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
                 )}
               >
-                {field === "all" ? "All" : field}
+                {searchField === field && (
+                  <motion.span
+                    layoutId="search-field-pill"
+                    transition={springSnappy}
+                    className="absolute inset-0 rounded-lg bg-primary shadow-sm"
+                  />
+                )}
+                <span className="relative">{field === "all" ? "All" : field}</span>
               </button>
             ))}
           </div>
         </div>
-      </section>
+      </motion.section>
 
       {/* Loading */}
       {status === "loading" && (
@@ -160,7 +211,12 @@ export function HomePage() {
       {/* Main content: sidebar + grid */}
       {status !== "loading" && (
         <section className="grid grid-cols-1 gap-8 lg:grid-cols-[240px_1fr]">
-          <aside className="lg:sticky lg:top-24 lg:h-fit">
+          <motion.aside
+            initial={{ opacity: 0, x: -14 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ ...springSoft, delay: 0.18 }}
+            className="lg:sticky lg:top-24 lg:h-fit"
+          >
             <div
               className="rounded-xl border border-border bg-card p-5 shadow-card"
               data-testid="filter-sidebar"
@@ -171,17 +227,20 @@ export function HomePage() {
                   Filters
                 </h2>
                 {hasActiveFilters && (
-                  <button
+                  <motion.button
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    whileTap={{ scale: 0.94 }}
                     onClick={() => {
                       setSearchQuery("")
                       clearGenres()
                       setAvailabilityFilter("all")
                     }}
-                    className="text-xs text-primary underline-offset-2 hover:underline"
+                    className="cursor-pointer text-xs text-primary underline-offset-2 hover:underline"
                     data-testid="filters-reset"
                   >
                     Reset all
-                  </button>
+                  </motion.button>
                 )}
               </div>
 
@@ -224,7 +283,7 @@ export function HomePage() {
                     {selectedGenres.length > 0 && (
                       <button
                         onClick={clearGenres}
-                        className="text-xs text-primary hover:underline"
+                        className="cursor-pointer text-xs text-primary hover:underline"
                         data-testid="filter-genre-clear"
                       >
                         Clear
@@ -235,26 +294,29 @@ export function HomePage() {
                     {allGenres.map((genre) => {
                       const active = selectedGenres.includes(genre)
                       return (
-                        <button
+                        <motion.button
                           key={genre}
+                          whileTap={{ scale: 0.92 }}
+                          transition={springSnappy}
                           onClick={() => toggleGenre(genre)}
                           data-testid={`filter-genre-${genre}`}
+                          aria-pressed={active}
                           className={cn(
-                            "rounded-full border px-2.5 py-1 text-xs transition-smooth",
+                            "cursor-pointer rounded-full border px-2.5 py-1 text-xs transition-smooth",
                             active
                               ? "border-primary bg-primary text-primary-foreground"
                               : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground hover:bg-accent/30",
                           )}
                         >
                           {genre}
-                        </button>
+                        </motion.button>
                       )
                     })}
                   </div>
                 </div>
               )}
             </div>
-          </aside>
+          </motion.aside>
 
           {/* Book grid */}
           <div>
@@ -270,7 +332,10 @@ export function HomePage() {
             </div>
 
             {filteredBooks.length === 0 ? (
-              <div
+              <motion.div
+                variants={fadeUp}
+                initial="hidden"
+                animate="show"
                 className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border py-24 text-center"
                 data-testid="no-books-found"
               >
@@ -279,17 +344,20 @@ export function HomePage() {
                 <p className="mt-1.5 text-xs text-muted-foreground">
                   Try a different keyword or remove some filters.
                 </p>
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.96 }}
+                  transition={springSnappy}
                   onClick={() => {
                     setSearchQuery("")
                     clearGenres()
                     setAvailabilityFilter("all")
                   }}
-                  className="mt-5 rounded-lg bg-primary px-4 py-2 text-xs font-medium text-primary-foreground transition-smooth hover:bg-primary/90"
+                  className="mt-5 cursor-pointer rounded-lg bg-primary px-4 py-2 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
                 >
                   Clear all filters
-                </button>
-              </div>
+                </motion.button>
+              </motion.div>
             ) : (
               <motion.div
                 layout
@@ -325,11 +393,15 @@ function BookCard({
   const available = book.available_copies > 0
   return (
     <motion.button
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, delay: Math.min(index * 0.025, 0.3) }}
+      layout
+      initial={{ opacity: 0, y: 16, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.96 }}
+      transition={{ ...springSoft, delay: Math.min(index * 0.04, 0.36) }}
+      whileHover={{ y: -6 }}
+      whileTap={{ scale: 0.97 }}
       onClick={onClick}
-      className="group flex flex-col text-left transition-lift"
+      className="group flex cursor-pointer flex-col text-left"
       aria-label={`View details for ${book.title}`}
       data-testid={`book-card-${book.id}`}
     >
@@ -337,11 +409,11 @@ function BookCard({
         <BookCover
           book={book}
           size="md"
-          className="w-full transition-lift group-hover:-translate-y-1.5 group-hover:shadow-lifted"
+          className="w-full group-hover:shadow-lifted"
         />
         <div
           className={cn(
-            "absolute right-2.5 top-2.5 flex h-6 items-center gap-1 rounded-full border px-2 text-[10px] font-medium backdrop-blur-sm transition-smooth",
+            "absolute right-2.5 top-2.5 flex h-6 items-center gap-1 rounded-full border px-2 text-[10px] font-medium backdrop-blur-sm",
             available
               ? "border-emerald-200 bg-emerald-50/90 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/80 dark:text-emerald-300"
               : "border-rose-200 bg-rose-50/90 text-rose-700 dark:border-rose-900 dark:bg-rose-950/80 dark:text-rose-300",
@@ -377,15 +449,18 @@ function BookCard({
   )
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function HeroStat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="flex flex-col">
+    <motion.div
+      variants={fadeUp}
+      className="flex flex-col"
+    >
       <span className="font-serif text-[2rem] font-semibold leading-none tracking-tight">
-        {value}
+        <CountUp value={value} />
       </span>
       <span className="mt-1.5 text-[10px] uppercase tracking-[0.15em] opacity-70">
         {label}
       </span>
-    </div>
+    </motion.div>
   )
 }

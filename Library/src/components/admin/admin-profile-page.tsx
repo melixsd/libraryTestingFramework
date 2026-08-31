@@ -22,6 +22,7 @@ import {
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { cn } from "@/lib/utils"
+import { springSoft, springSnappy, fadeUp, staggerContainer } from "@/lib/motion"
 import { MemberStatusBadge } from "@/components/shared/status-badge"
 
 type AdminTab = "books" | "authors" | "members"
@@ -47,7 +48,6 @@ export function AdminProfilePage() {
     setDismissedErrors((prev) => new Set(prev).add(key))
   }, [])
 
-  // Fetch data on mount
   useEffect(() => {
     fetchBooks()
     fetchAuthors()
@@ -60,7 +60,6 @@ export function AdminProfilePage() {
 
   const anyLoading = booksStatus === "loading" || authorsStatus === "loading" || membersStatus === "loading"
 
-  // Collect active errors
   const activeErrors: { key: string; msg: string }[] = []
   if (booksError && !dismissedErrors.has("books")) activeErrors.push({ key: "books", msg: `Books: ${booksError}` })
   if (authorsError && !dismissedErrors.has("authors")) activeErrors.push({ key: "authors", msg: `Authors: ${authorsError}` })
@@ -73,16 +72,20 @@ export function AdminProfilePage() {
     >
       {/* Admin header */}
       <motion.section
-        initial={{ opacity: 0, y: 8 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
+        transition={springSoft}
         className="mb-8 overflow-hidden rounded-2xl border border-border bg-card shadow-lifted"
       >
         <div className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
           <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-card">
+            <motion.div
+              whileHover={{ rotate: -3, scale: 1.05 }}
+              transition={springSoft}
+              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-card"
+            >
               <Shield className="h-7 w-7" />
-            </div>
+            </motion.div>
             <div>
               <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary/70 px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
                 Administrator
@@ -95,7 +98,10 @@ export function AdminProfilePage() {
               </p>
             </div>
           </div>
-          <button
+          <motion.button
+            whileHover={{ y: -1 }}
+            whileTap={{ scale: 0.96 }}
+            transition={springSnappy}
             onClick={() => {
               setDismissedErrors(new Set())
               fetchBooks()
@@ -103,17 +109,22 @@ export function AdminProfilePage() {
               fetchMembers()
             }}
             disabled={anyLoading}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border px-3.5 py-2 text-xs font-medium text-muted-foreground transition-smooth hover:border-primary/30 hover:bg-accent hover:text-foreground disabled:opacity-50"
+            className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3.5 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
             data-testid="btn-refresh-all"
           >
             <RefreshCw
               className={cn("h-3.5 w-3.5", anyLoading && "animate-spin")}
             />
             Refresh
-          </button>
+          </motion.button>
         </div>
 
-        <div className="grid grid-cols-2 gap-px border-t border-border bg-border sm:grid-cols-4">
+        <motion.div
+          variants={staggerContainer}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-2 gap-px border-t border-border bg-border sm:grid-cols-4"
+        >
           <KPI
             icon={Library}
             label="Total books"
@@ -135,7 +146,7 @@ export function AdminProfilePage() {
             value={String(inactiveMembers)}
             tone={inactiveMembers > 0 ? "warning" : "default"}
           />
-        </div>
+        </motion.div>
       </motion.section>
 
       {/* Error banners */}
@@ -143,16 +154,18 @@ export function AdminProfilePage() {
         {activeErrors.map((err) => (
           <motion.div
             key={err.key}
-            initial={{ opacity: 0, y: -4 }}
+            initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
+            exit={{ opacity: 0, y: -6, transition: { duration: 0.15 } }}
+            transition={springSoft}
             className="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900 dark:bg-amber-950/30"
           >
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
             <p className="flex-1 text-sm text-amber-800 dark:text-amber-200">{err.msg}</p>
             <button
               onClick={() => dismissError(err.key)}
-              className="shrink-0 rounded-md p-1 text-amber-600 hover:bg-amber-100 dark:text-amber-400 dark:hover:bg-amber-900/40"
+              className="shrink-0 cursor-pointer rounded-md p-1 text-amber-600 hover:bg-amber-100 dark:text-amber-400 dark:hover:bg-amber-900/40"
+              aria-label="Dismiss error"
             >
               <X className="h-4 w-4" />
             </button>
@@ -216,7 +229,6 @@ function BooksAdmin() {
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState("")
 
-  // Add book form state
   const [newTitle, setNewTitle] = useState("")
   const [newIsbn, setNewIsbn] = useState("")
   const [newPrice, setNewPrice] = useState("29.99")
@@ -279,7 +291,6 @@ function BooksAdmin() {
     }
   }
 
-  // Loading state
   if (booksStatus === "loading" && books.length === 0) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -289,30 +300,32 @@ function BooksAdmin() {
     )
   }
 
-  // Error state
   if (booksStatus === "error" && books.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16 text-center">
         <FileQuestion className="mb-3 h-10 w-10 text-rose-400" />
         <p className="text-sm font-medium">Failed to load books</p>
         <p className="mt-1 text-xs text-muted-foreground">{booksError}</p>
-        <button
+        <motion.button
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.96 }}
+          transition={springSnappy}
           onClick={() => fetchBooks()}
-          className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          className="mt-4 inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
         >
           <RefreshCw className="h-3.5 w-3.5" />
           Retry
-        </button>
+        </motion.button>
       </div>
     )
   }
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 6 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -6 }}
-      transition={{ duration: 0.2 }}
+      exit={{ opacity: 0, y: -8, transition: { duration: 0.15 } }}
+      transition={springSoft}
     >
       <Toolbar
         search={search}
@@ -323,7 +336,7 @@ function BooksAdmin() {
         testId="books-toolbar"
       />
 
-      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
+      <motion.div layout className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
         <div className="overflow-x-auto">
           <table
             className="w-full min-w-[640px] text-sm"
@@ -343,7 +356,7 @@ function BooksAdmin() {
               {filtered.map((book) => (
                 <tr
                   key={book.id}
-                  className="transition-smooth hover:bg-accent/20"
+                  className="transition-colors hover:bg-accent/20"
                   data-testid={`book-row-${book.id}`}
                 >
                   <td className="px-4 py-3.5 font-medium tracking-tight">{book.title}</td>
@@ -413,144 +426,160 @@ function BooksAdmin() {
             </p>
           </div>
         )}
-      </div>
+      </motion.div>
 
       {/* Add book dialog */}
-      {showAdd && (
-        <Modal title="Add new book" onClose={() => setShowAdd(false)}>
-          <div className="space-y-3">
-            <Field label="Title" full>
-              <Input
-                value={newTitle}
-                onChange={setNewTitle}
-                placeholder="Book title"
-                testId="add-book-title"
-              />
-            </Field>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Author" full>
-                <select
-                  value={newAuthorId}
-                  onChange={(e) => setNewAuthorId(Number(e.target.value))}
-                  data-testid="add-book-author"
-                  className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
-                >
-                  {authors.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="ISBN" full>
+      <AnimatePresence>
+        {showAdd && (
+          <Modal title="Add new book" onClose={() => setShowAdd(false)}>
+            <div className="space-y-3">
+              <Field label="Title" full>
                 <Input
-                  value={newIsbn}
-                  onChange={setNewIsbn}
-                  placeholder="978-0-000-00000-0"
-                  testId="add-book-isbn"
+                  value={newTitle}
+                  onChange={setNewTitle}
+                  placeholder="Book title"
+                  testId="add-book-title"
                 />
               </Field>
-              <Field label="Price ($)">
-                <Input
-                  value={newPrice}
-                  onChange={setNewPrice}
-                  type="number"
-                  testId="add-book-price"
-                />
-              </Field>
-              <Field label="Copies">
-                <Input
-                  value={newCopies}
-                  onChange={setNewCopies}
-                  type="number"
-                  testId="add-book-copies"
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field label="Author" full>
+                  <select
+                    value={newAuthorId}
+                    onChange={(e) => setNewAuthorId(Number(e.target.value))}
+                    data-testid="add-book-author"
+                    className="h-10 w-full cursor-pointer rounded-lg border border-border bg-background px-3 text-sm outline-none transition-smooth focus:border-primary"
+                  >
+                    {authors.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="ISBN" full>
+                  <Input
+                    value={newIsbn}
+                    onChange={setNewIsbn}
+                    placeholder="978-0-000-00000-0"
+                    testId="add-book-isbn"
+                  />
+                </Field>
+                <Field label="Price ($)">
+                  <Input
+                    value={newPrice}
+                    onChange={setNewPrice}
+                    type="number"
+                    testId="add-book-price"
+                  />
+                </Field>
+                <Field label="Copies">
+                  <Input
+                    value={newCopies}
+                    onChange={setNewCopies}
+                    type="number"
+                    testId="add-book-copies"
+                  />
+                </Field>
+              </div>
+              <Field label="Description" full>
+                <TextArea
+                  value={newDescription}
+                  onChange={setNewDescription}
+                  testId="add-book-desc"
                 />
               </Field>
             </div>
-            <Field label="Description" full>
-              <TextArea
-                value={newDescription}
-                onChange={setNewDescription}
-                testId="add-book-desc"
-              />
-            </Field>
-          </div>
 
-          {formError && (
-            <div
-              className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-300"
-              data-testid="form-error"
-            >
-              {formError}
+            {formError && (
+              <motion.div
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={springSoft}
+                className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-300"
+                data-testid="form-error"
+              >
+                {formError}
+              </motion.div>
+            )}
+
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                onClick={() => setShowAdd(false)}
+                className="cursor-pointer rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent"
+              >
+                Cancel
+              </button>
+              <motion.button
+                whileHover={{ scale: saving ? 1 : 1.02 }}
+                whileTap={{ scale: saving ? 1 : 0.97 }}
+                transition={springSnappy}
+                onClick={handleAddBook}
+                disabled={saving || !newTitle.trim() || !newIsbn.trim()}
+                data-testid="btn-add-book-submit"
+                className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {saving ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                Create book
+              </motion.button>
             </div>
-          )}
-
-          <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <button
-              onClick={() => setShowAdd(false)}
-              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleAddBook}
-              disabled={saving || !newTitle.trim() || !newIsbn.trim()}
-              data-testid="btn-add-book-submit"
-              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-            >
-              {saving ? (
-                <RefreshCw className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
-              Create book
-            </button>
-          </div>
-        </Modal>
-      )}
+          </Modal>
+        )}
+      </AnimatePresence>
 
       {/* Add copies dialog */}
-      {showAddCopies !== null && (
-        <Modal title="Add copies" onClose={() => setShowAddCopies(null)}>
-          <Field label="Number of copies to add" full>
-            <Input
-              value={String(copiesCount)}
-              onChange={(v) => setCopiesCount(Math.max(1, parseInt(v) || 1))}
-              type="number"
-              testId="add-copies-count"
-            />
-          </Field>
-          {formError && (
-            <div
-              className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-300"
-              data-testid="form-error"
-            >
-              {formError}
+      <AnimatePresence>
+        {showAddCopies !== null && (
+          <Modal title="Add copies" onClose={() => setShowAddCopies(null)}>
+            <Field label="Number of copies to add" full>
+              <Input
+                value={String(copiesCount)}
+                onChange={(v) => setCopiesCount(Math.max(1, parseInt(v) || 1))}
+                type="number"
+                testId="add-copies-count"
+              />
+            </Field>
+            {formError && (
+              <motion.div
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={springSoft}
+                className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-300"
+                data-testid="form-error"
+              >
+                {formError}
+              </motion.div>
+            )}
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                onClick={() => setShowAddCopies(null)}
+                className="cursor-pointer rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent"
+              >
+                Cancel
+              </button>
+              <motion.button
+                whileHover={{ scale: saving ? 1 : 1.02 }}
+                whileTap={{ scale: saving ? 1 : 0.97 }}
+                transition={springSnappy}
+                onClick={() => handleAddCopies(showAddCopies)}
+                disabled={saving}
+                data-testid="btn-add-copies-submit"
+                className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {saving ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+                Add copies
+              </motion.button>
             </div>
-          )}
-          <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <button
-              onClick={() => setShowAddCopies(null)}
-              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => handleAddCopies(showAddCopies)}
-              disabled={saving}
-              data-testid="btn-add-copies-submit"
-              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-            >
-              {saving ? (
-                <RefreshCw className="h-4 w-4 animate-spin" />
-              ) : (
-                <Plus className="h-4 w-4" />
-              )}
-              Add copies
-            </button>
-          </div>
-        </Modal>
-      )}
+          </Modal>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }
@@ -619,7 +648,6 @@ function AuthorsAdmin() {
     }
   }
 
-  // Loading state
   if (authorsStatus === "loading" && authors.length === 0) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -629,30 +657,32 @@ function AuthorsAdmin() {
     )
   }
 
-  // Error state
   if (authorsStatus === "error" && authors.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16 text-center">
         <FileQuestion className="mb-3 h-10 w-10 text-rose-400" />
         <p className="text-sm font-medium">Failed to load authors</p>
         <p className="mt-1 text-xs text-muted-foreground">{authorsError}</p>
-        <button
+        <motion.button
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.96 }}
+          transition={springSnappy}
           onClick={() => fetchAuthors()}
-          className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          className="mt-4 inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
         >
           <RefreshCw className="h-3.5 w-3.5" />
           Retry
-        </button>
+        </motion.button>
       </div>
     )
   }
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 6 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -6 }}
-      transition={{ duration: 0.2 }}
+      exit={{ opacity: 0, y: -8, transition: { duration: 0.15 } }}
+      transition={springSoft}
     >
       <Toolbar
         search={search}
@@ -663,7 +693,7 @@ function AuthorsAdmin() {
         testId="authors-toolbar"
       />
 
-      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
+      <motion.div layout className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
         <div className="overflow-x-auto">
           <table
             className="w-full min-w-[400px] text-sm"
@@ -681,7 +711,7 @@ function AuthorsAdmin() {
               {filtered.map((author) => (
                 <tr
                   key={author.id}
-                  className="transition-smooth hover:bg-accent/20"
+                  className="transition-colors hover:bg-accent/20"
                   data-testid={`author-row-${author.id}`}
                 >
                   <td className="px-4 py-3.5 font-medium tracking-tight">{author.name}</td>
@@ -727,60 +757,68 @@ function AuthorsAdmin() {
             </p>
           </div>
         )}
-      </div>
+      </motion.div>
 
       {/* Add author dialog */}
-      {showAdd && (
-        <Modal title="Add new author" onClose={() => setShowAdd(false)}>
-          <div className="space-y-3">
-            <Field label="Name" full>
-              <Input
-                value={newName}
-                onChange={setNewName}
-                placeholder="Author name"
-                testId="add-author-name"
-              />
-            </Field>
-            <Field label="Nationality" full>
-              <Input
-                value={newNationality}
-                onChange={setNewNationality}
-                placeholder="e.g. American"
-                testId="add-author-nationality"
-              />
-            </Field>
-          </div>
-          {formError && (
-            <div
-              className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-300"
-              data-testid="form-error"
-            >
-              {formError}
+      <AnimatePresence>
+        {showAdd && (
+          <Modal title="Add new author" onClose={() => setShowAdd(false)}>
+            <div className="space-y-3">
+              <Field label="Name" full>
+                <Input
+                  value={newName}
+                  onChange={setNewName}
+                  placeholder="Author name"
+                  testId="add-author-name"
+                />
+              </Field>
+              <Field label="Nationality" full>
+                <Input
+                  value={newNationality}
+                  onChange={setNewNationality}
+                  placeholder="e.g. American"
+                  testId="add-author-nationality"
+                />
+              </Field>
             </div>
-          )}
-          <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <button
-              onClick={() => setShowAdd(false)}
-              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleAddAuthor}
-              disabled={saving || !newName.trim()}
-              data-testid="btn-add-author-submit"
-              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-            >
-              {saving ? (
-                <RefreshCw className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
-              Create author
-            </button>
-          </div>
-        </Modal>
-      )}
+            {formError && (
+              <motion.div
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={springSoft}
+                className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-300"
+                data-testid="form-error"
+              >
+                {formError}
+              </motion.div>
+            )}
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                onClick={() => setShowAdd(false)}
+                className="cursor-pointer rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent"
+              >
+                Cancel
+              </button>
+              <motion.button
+                whileHover={{ scale: saving ? 1 : 1.02 }}
+                whileTap={{ scale: saving ? 1 : 0.97 }}
+                transition={springSnappy}
+                onClick={handleAddAuthor}
+                disabled={saving || !newName.trim()}
+                data-testid="btn-add-author-submit"
+                className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {saving ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                Create author
+              </motion.button>
+            </div>
+          </Modal>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }
@@ -799,12 +837,10 @@ function MembersAdmin() {
   const [showAdd, setShowAdd] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  // Add member form
   const [newName, setNewName] = useState("")
   const [newEmail, setNewEmail] = useState("")
-  const [newTierId, setNewTierId] = useState("2") // Default to Regular
+  const [newTierId, setNewTierId] = useState("2")
 
-  // Pay fine dialog
   const [payFineMemberId, setPayFineMemberId] = useState<number | null>(null)
   const [payAmount, setPayAmount] = useState("")
 
@@ -842,7 +878,6 @@ function MembersAdmin() {
     }
   }
 
-  // Loading state
   if (membersStatus === "loading" && members.length === 0) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -852,30 +887,32 @@ function MembersAdmin() {
     )
   }
 
-  // Error state
   if (membersStatus === "error" && members.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16 text-center">
         <FileQuestion className="mb-3 h-10 w-10 text-rose-400" />
         <p className="text-sm font-medium">Failed to load members</p>
         <p className="mt-1 text-xs text-muted-foreground">{membersError}</p>
-        <button
+        <motion.button
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.96 }}
+          transition={springSnappy}
           onClick={() => fetchMembers()}
-          className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          className="mt-4 inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
         >
           <RefreshCw className="h-3.5 w-3.5" />
           Retry
-        </button>
+        </motion.button>
       </div>
     )
   }
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 6 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -6 }}
-      transition={{ duration: 0.2 }}
+      exit={{ opacity: 0, y: -8, transition: { duration: 0.15 } }}
+      transition={springSoft}
     >
       <Toolbar
         search={search}
@@ -886,7 +923,7 @@ function MembersAdmin() {
         testId="members-toolbar"
       />
 
-      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
+      <motion.div layout className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
         <div className="overflow-x-auto">
           <table
             className="w-full min-w-[520px] text-sm"
@@ -906,7 +943,7 @@ function MembersAdmin() {
               {filtered.map((member) => (
                 <tr
                   key={member.id}
-                  className="transition-smooth hover:bg-accent/20"
+                  className="transition-colors hover:bg-accent/20"
                   data-testid={`member-row-${member.id}`}
                 >
                   <td className="px-4 py-3.5 font-medium tracking-tight">{member.full_name}</td>
@@ -937,13 +974,16 @@ function MembersAdmin() {
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1">
                       {member.outstanding_fine > 0 && (
-                        <button
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          transition={springSnappy}
                           onClick={() => setPayFineMemberId(member.id)}
-                          className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+                          className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
                           data-testid={`btn-pay-fine-${member.id}`}
                         >
                           Pay fine
-                        </button>
+                        </motion.button>
                       )}
                     </div>
                   </td>
@@ -969,100 +1009,110 @@ function MembersAdmin() {
             </p>
           </div>
         )}
-      </div>
+      </motion.div>
 
       {/* Add member dialog */}
-      {showAdd && (
-        <Modal title="Add new member" onClose={() => setShowAdd(false)}>
-          <div className="space-y-3">
-            <Field label="Full name" full>
-              <Input
-                value={newName}
-                onChange={setNewName}
-                placeholder="John Doe"
-                testId="add-member-name"
-              />
-            </Field>
-            <Field label="Email" full>
-              <Input
-                value={newEmail}
-                onChange={setNewEmail}
-                placeholder="john@example.com"
-                testId="add-member-email"
-              />
-            </Field>
-            <Field label="Membership tier" full>
-              <select
-                value={newTierId}
-                onChange={(e) => setNewTierId(e.target.value)}
-                data-testid="add-member-tier"
-                className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
+      <AnimatePresence>
+        {showAdd && (
+          <Modal title="Add new member" onClose={() => setShowAdd(false)}>
+            <div className="space-y-3">
+              <Field label="Full name" full>
+                <Input
+                  value={newName}
+                  onChange={setNewName}
+                  placeholder="John Doe"
+                  testId="add-member-name"
+                />
+              </Field>
+              <Field label="Email" full>
+                <Input
+                  value={newEmail}
+                  onChange={setNewEmail}
+                  placeholder="john@example.com"
+                  testId="add-member-email"
+                />
+              </Field>
+              <Field label="Membership tier" full>
+                <select
+                  value={newTierId}
+                  onChange={(e) => setNewTierId(e.target.value)}
+                  data-testid="add-member-tier"
+                  className="h-10 w-full cursor-pointer rounded-lg border border-border bg-background px-3 text-sm outline-none transition-smooth focus:border-primary"
+                >
+                  <option value="1">Student</option>
+                  <option value="2">Regular</option>
+                  <option value="3">Premium</option>
+                </select>
+              </Field>
+            </div>
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                onClick={() => setShowAdd(false)}
+                className="cursor-pointer rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent"
               >
-                <option value="1">Student</option>
-                <option value="2">Regular</option>
-                <option value="3">Premium</option>
-              </select>
-            </Field>
-          </div>
-          <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <button
-              onClick={() => setShowAdd(false)}
-              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleAddMember}
-              disabled={saving || !newName.trim() || !newEmail.trim()}
-              data-testid="btn-add-member-submit"
-              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-            >
-              {saving ? (
-                <RefreshCw className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
-              Create member
-            </button>
-          </div>
-        </Modal>
-      )}
+                Cancel
+              </button>
+              <motion.button
+                whileHover={{ scale: saving ? 1 : 1.02 }}
+                whileTap={{ scale: saving ? 1 : 0.97 }}
+                transition={springSnappy}
+                onClick={handleAddMember}
+                disabled={saving || !newName.trim() || !newEmail.trim()}
+                data-testid="btn-add-member-submit"
+                className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {saving ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                Create member
+              </motion.button>
+            </div>
+          </Modal>
+        )}
+      </AnimatePresence>
 
       {/* Pay fine dialog */}
-      {payFineMemberId !== null && (
-        <Modal title="Pay fine" onClose={() => setPayFineMemberId(null)}>
-          <Field label="Amount ($)" full>
-            <Input
-              value={payAmount}
-              onChange={setPayAmount}
-              type="number"
-              placeholder="10.00"
-              testId="pay-fine-amount"
-            />
-          </Field>
-          <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <button
-              onClick={() => setPayFineMemberId(null)}
-              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handlePayFine}
-              disabled={saving || !payAmount || parseFloat(payAmount) <= 0}
-              data-testid="btn-pay-fine-submit"
-              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-            >
-              {saving ? (
-                <RefreshCw className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
-              Pay
-            </button>
-          </div>
-        </Modal>
-      )}
+      <AnimatePresence>
+        {payFineMemberId !== null && (
+          <Modal title="Pay fine" onClose={() => setPayFineMemberId(null)}>
+            <Field label="Amount ($)" full>
+              <Input
+                value={payAmount}
+                onChange={setPayAmount}
+                type="number"
+                placeholder="10.00"
+                testId="pay-fine-amount"
+              />
+            </Field>
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                onClick={() => setPayFineMemberId(null)}
+                className="cursor-pointer rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent"
+              >
+                Cancel
+              </button>
+              <motion.button
+                whileHover={{ scale: saving ? 1 : 1.02 }}
+                whileTap={{ scale: saving ? 1 : 0.97 }}
+                transition={springSnappy}
+                onClick={handlePayFine}
+                disabled={saving || !payAmount || parseFloat(payAmount) <= 0}
+                data-testid="btn-pay-fine-submit"
+                className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {saving ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                Pay
+              </motion.button>
+            </div>
+          </Modal>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }
@@ -1081,8 +1131,12 @@ function KPI({
   tone?: "default" | "warning"
 }) {
   return (
-    <div
-      className="flex items-center gap-3 bg-card px-4 py-4 transition-smooth hover:bg-accent/20"
+    <motion.div
+      variants={{
+        hidden: { opacity: 0, y: 10 },
+        show: { opacity: 1, y: 0, transition: springSoft },
+      }}
+      className="flex items-center gap-3 bg-card px-4 py-4 transition-colors hover:bg-accent/20"
       data-testid={`kpi-${label.toLowerCase().replace(" ", "-")}`}
     >
       <Icon
@@ -1095,7 +1149,7 @@ function KPI({
         <p className="font-serif text-xl font-semibold leading-none tracking-tight">{value}</p>
         <p className="mt-1 text-[11px] text-muted-foreground/80">{label}</p>
       </div>
-    </div>
+    </motion.div>
   )
 }
 
@@ -1118,8 +1172,10 @@ function AdminTabButton({
     <button
       onClick={onClick}
       data-testid={testId}
+      aria-selected={active}
+      role="tab"
       className={cn(
-        "flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition-smooth",
+        "flex cursor-pointer items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition-colors",
         active
           ? "border-primary text-primary"
           : "border-transparent text-muted-foreground hover:text-foreground",
@@ -1129,7 +1185,7 @@ function AdminTabButton({
       {label}
       <span
         className={cn(
-          "rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+          "rounded-full px-1.5 py-0.5 text-[10px] font-medium transition-colors",
           active
             ? "bg-primary/15 text-primary"
             : "bg-secondary/70 text-secondary-foreground",
@@ -1171,14 +1227,17 @@ function Toolbar({
           className="h-10 w-full rounded-lg border border-border bg-card pl-9 pr-3 text-sm shadow-card outline-none transition-smooth placeholder:text-muted-foreground/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/15"
         />
       </div>
-      <button
+      <motion.button
+        whileHover={{ y: -1 }}
+        whileTap={{ scale: 0.97 }}
+        transition={springSnappy}
         onClick={onAction}
         data-testid={`${testId}-add`}
-        className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-card transition-lift hover:bg-primary/90 hover:shadow-lifted"
+        className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-card transition-colors hover:bg-primary/90"
       >
         <Plus className="h-4 w-4" />
         {actionLabel}
-      </button>
+      </motion.button>
     </div>
   )
 }
@@ -1199,22 +1258,26 @@ function IconBtn({
   testId?: string
 }) {
   return (
-    <button
+    <motion.button
+      whileHover={disabled ? undefined : { scale: 1.12 }}
+      whileTap={disabled ? undefined : { scale: 0.9 }}
+      transition={springSnappy}
       onClick={onClick}
       disabled={disabled}
       data-testid={testId}
       title={label}
+      aria-label={label}
       className={cn(
-        "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-smooth",
+        "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
         disabled
           ? "cursor-not-allowed text-muted-foreground/40"
           : destructive
-            ? "text-rose-500 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/40"
-            : "text-muted-foreground hover:bg-accent hover:text-foreground",
+            ? "cursor-pointer text-rose-500 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/40"
+            : "cursor-pointer text-muted-foreground hover:bg-accent hover:text-foreground",
       )}
     >
       <Icon className="h-4 w-4" />
-    </button>
+    </motion.button>
   )
 }
 
@@ -1228,27 +1291,39 @@ function Modal({
   children: React.ReactNode
 }) {
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, transition: { duration: 0.15 } }}
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 backdrop-blur-sm sm:items-center sm:p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
       data-testid="modal"
     >
-      <div className="max-h-[90vh] w-full overflow-y-auto rounded-t-2xl border border-border bg-card p-6 shadow-float sm:max-w-lg sm:rounded-2xl">
+      <motion.div
+        initial={{ opacity: 0, y: 28, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 20, scale: 0.98, transition: { duration: 0.18 } }}
+        transition={springSoft}
+        className="max-h-[90vh] w-full overflow-y-auto rounded-t-2xl border border-border bg-card p-6 shadow-float sm:max-w-lg sm:rounded-2xl"
+      >
         <div className="mb-5 flex items-center justify-between">
           <h2 className="font-serif text-lg font-semibold tracking-tight">{title}</h2>
-          <button
+          <motion.button
+            whileHover={{ rotate: 90 }}
+            transition={springSnappy}
             onClick={onClose}
-            className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="cursor-pointer rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             data-testid="modal-close"
+            aria-label="Close dialog"
           >
             <X className="h-5 w-5" />
-          </button>
+          </motion.button>
         </div>
         {children}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }
 

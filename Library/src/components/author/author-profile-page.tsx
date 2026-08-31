@@ -13,6 +13,7 @@ import {
   FileQuestion,
 } from "lucide-react"
 import { motion } from "framer-motion"
+import { springSoft, springSnappy, fadeUp } from "@/lib/motion"
 import { useMemo, useState } from "react"
 
 export function AuthorProfilePage() {
@@ -28,10 +29,8 @@ export function AuthorProfilePage() {
   const setView = useLibraryStore((s) => s.setView)
   const [sort, setSort] = useState<"title" | "year">("year")
 
-  // Default to first author if none selected
   const effectiveAuthor = author ?? authors[0]
 
-  // Books by this author
   const authorBooks = useMemo(() => {
     if (!effectiveAuthor) return []
     const filtered = allBooks.filter((b) =>
@@ -47,7 +46,6 @@ export function AuthorProfilePage() {
     }
   }, [allBooks, effectiveAuthor, sort])
 
-  // Loading state while books/authors are being fetched
   if ((authorsStatus === "loading" && authors.length === 0) ||
       (booksStatus === "loading" && allBooks.length === 0 && effectiveAuthor)) {
     return (
@@ -58,19 +56,21 @@ export function AuthorProfilePage() {
     )
   }
 
-  // Error state when authors fail to load
   if (authorsStatus === "error" && authors.length === 0) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-20 text-center" data-testid="author-profile-page">
         <XCircle className="mx-auto mb-3 h-10 w-10 text-rose-500" />
         <p className="text-sm font-medium text-rose-600">Failed to load authors</p>
         <p className="mt-1 text-xs text-muted-foreground">{authorsError ?? "An unexpected error occurred."}</p>
-        <button
+        <motion.button
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.96 }}
+          transition={springSnappy}
           onClick={() => setView("home")}
-          className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          className="mt-4 cursor-pointer rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
         >
           Back to browse
-        </button>
+        </motion.button>
       </div>
     )
   }
@@ -80,12 +80,15 @@ export function AuthorProfilePage() {
       <div className="mx-auto max-w-3xl px-4 py-20 text-center" data-testid="author-profile-page">
         <FileQuestion className="mx-auto mb-3 h-10 w-10 text-muted-foreground/60" />
         <p className="text-muted-foreground">No author selected.</p>
-        <button
+        <motion.button
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.96 }}
+          transition={springSnappy}
           onClick={() => setView("home")}
-          className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          className="mt-4 cursor-pointer rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
         >
           Back to browse
-        </button>
+        </motion.button>
       </div>
     )
   }
@@ -95,25 +98,29 @@ export function AuthorProfilePage() {
       className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8"
       data-testid="author-profile-page"
     >
-      <button
+      <motion.button
         onClick={() => setView("home")}
-        className="mb-8 inline-flex items-center gap-2 text-sm text-muted-foreground transition-smooth hover:gap-3 hover:text-foreground"
+        whileHover={{ x: -3 }}
+        transition={springSnappy}
+        className="mb-8 inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
         data-testid="btn-back"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to catalogue
-      </button>
+      </motion.button>
 
       <motion.section
-        initial={{ opacity: 0, y: 8 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
+        transition={springSoft}
         className="overflow-hidden rounded-2xl border border-border bg-card shadow-lifted"
       >
         <div className="grid grid-cols-1 md:grid-cols-[1fr_auto]">
           <div className="p-6 sm:p-8">
             <div className="flex items-start gap-5">
-              <div
+              <motion.div
+                whileHover={{ rotate: -3, scale: 1.04 }}
+                transition={springSoft}
                 className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-primary/12 text-2xl font-bold text-primary ring-1 ring-primary/10"
                 data-testid="author-avatar"
               >
@@ -123,7 +130,7 @@ export function AuthorProfilePage() {
                   .join("")
                   .toUpperCase()
                   .slice(0, 2)}
-              </div>
+              </motion.div>
               <div className="min-w-0 flex-1">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary/70 px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
                   <PenTool className="h-3 w-3" />
@@ -150,14 +157,18 @@ export function AuthorProfilePage() {
           </div>
 
           <div className="relative hidden w-52 items-center justify-center bg-gradient-to-br from-primary/8 via-accent/12 to-primary/3 md:flex">
-            <div className="text-center">
+            <motion.div
+              animate={{ y: [0, -5, 0] }}
+              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+              className="text-center"
+            >
               <BookOpen className="mx-auto h-12 w-12 text-primary/25" />
               <p className="mt-3 font-serif text-[11px] uppercase tracking-[0.2em] text-primary/50">
                 Aldenwood
                 <br />
                 Collection
               </p>
-            </div>
+            </motion.div>
           </div>
         </div>
       </motion.section>
@@ -179,10 +190,11 @@ export function AuthorProfilePage() {
                 key={opt.id}
                 onClick={() => setSort(opt.id)}
                 data-testid={`sort-${opt.id}`}
+                aria-pressed={sort === opt.id}
                 className={
                   sort === opt.id
-                    ? "rounded-md bg-primary px-3.5 py-1.5 font-medium text-primary-foreground"
-                    : "rounded-md px-3.5 py-1.5 text-muted-foreground transition-smooth hover:bg-accent/60 hover:text-foreground"
+                    ? "cursor-pointer rounded-md bg-primary px-3.5 py-1.5 font-medium text-primary-foreground"
+                    : "cursor-pointer rounded-md px-3.5 py-1.5 text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
                 }
               >
                 {opt.label}
@@ -191,7 +203,6 @@ export function AuthorProfilePage() {
           </div>
         </div>
 
-        {/* Loading while books are still being fetched */}
         {booksStatus === "loading" && allBooks.length === 0 ? (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -199,9 +210,9 @@ export function AuthorProfilePage() {
           </div>
         ) : authorBooks.length === 0 ? (
           <motion.div
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25 }}
+            variants={fadeUp}
+            initial="hidden"
+            animate="show"
           >
             <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16 text-center">
               <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
@@ -221,17 +232,19 @@ export function AuthorProfilePage() {
             {authorBooks.map((book, i) => (
               <motion.button
                 key={book.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.25, delay: Math.min(i * 0.04, 0.3) }}
+                initial={{ opacity: 0, y: 16, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ ...springSoft, delay: Math.min(i * 0.05, 0.35) }}
+                whileHover={{ y: -6 }}
+                whileTap={{ scale: 0.97 }}
                 onClick={() => selectBook(book.id)}
-                className="group text-left transition-lift"
+                className="group cursor-pointer text-left"
                 data-testid={`author-book-${book.id}`}
               >
                 <BookCover
                   book={book}
                   size="md"
-                  className="w-full transition-lift group-hover:-translate-y-1.5 group-hover:shadow-lifted"
+                  className="w-full group-hover:shadow-lifted"
                 />
                 <div className="mt-3.5">
                   <h3 className="line-clamp-1 font-serif text-sm font-semibold tracking-tight">
@@ -266,11 +279,16 @@ export function AuthorProfilePage() {
           >
             {authors
               .filter((a) => a.id !== effectiveAuthor.id)
-              .map((a) => (
-                <button
+              .map((a, i) => (
+                <motion.button
                   key={a.id}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ ...springSoft, delay: Math.min(i * 0.05, 0.3) }}
+                  whileHover={{ y: -4 }}
+                  whileTap={{ scale: 0.97 }}
                   onClick={() => selectAuthor(a.id)}
-                  className="flex w-36 shrink-0 flex-col items-center gap-2.5 rounded-xl border border-border bg-card p-4 text-center shadow-card transition-smooth hover:border-primary/30 hover:bg-accent/20 sm:w-44"
+                  className="flex w-36 shrink-0 cursor-pointer flex-col items-center gap-2.5 rounded-xl border border-border bg-card p-4 text-center shadow-card transition-colors hover:border-primary/30 hover:bg-accent/20 sm:w-44"
                   data-testid={`other-author-${a.id}`}
                 >
                   <div className="flex h-14 w-14 items-center justify-center rounded-full bg-secondary/80 text-lg font-semibold text-secondary-foreground">
@@ -287,7 +305,7 @@ export function AuthorProfilePage() {
                       {a.nationality ?? "Unknown"}
                     </p>
                   </div>
-                </button>
+                </motion.button>
               ))}
           </div>
         </section>

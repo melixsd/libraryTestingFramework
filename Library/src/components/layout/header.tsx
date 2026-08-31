@@ -3,7 +3,9 @@
 import { useLibraryStore } from "@/store/library-store"
 import { cn } from "@/lib/utils"
 import { Library, User, PenTool, Shield, LogOut } from "lucide-react"
+import { motion } from "framer-motion"
 import { InitialAvatar } from "@/components/shared/initial-avatar"
+import { springSnappy } from "@/lib/motion"
 
 export function Header() {
   const currentView = useLibraryStore((s) => s.currentView)
@@ -20,17 +22,20 @@ export function Header() {
 
   return (
     <header
-      className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-md"
+      className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md"
       data-testid="app-header"
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6 lg:px-8">
-        <button
+        <motion.button
+          whileHover={{ rotate: -3, scale: 1.04 }}
+          whileTap={{ scale: 0.94 }}
+          transition={springSnappy}
           onClick={() => setView("home")}
-          className="group flex items-center gap-2.5 transition-smooth hover:opacity-90"
+          className="group flex items-center gap-2.5"
           aria-label="Go to home"
           data-testid="nav-home"
         >
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-card transition-lift group-hover:-rotate-3 group-hover:shadow-lifted">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-card transition-lift group-hover:shadow-lifted">
             <Library className="h-5 w-5" />
           </div>
           <div className="hidden flex-col leading-tight sm:flex">
@@ -41,10 +46,10 @@ export function Header() {
               Est. 1894
             </span>
           </div>
-        </button>
+        </motion.button>
 
         {/* Primary nav */}
-        <nav className="ml-6 hidden items-center gap-1 md:flex">
+        <nav className="ml-6 hidden items-center gap-1 md:flex" aria-label="Primary">
           <NavButton
             label="Browse"
             active={currentView === "home" || currentView === "book-detail"}
@@ -87,7 +92,11 @@ export function Header() {
 
         <div className="hidden items-center gap-2.5 sm:flex">
           <RoleBadge role={role} />
-          <div className="flex items-center gap-2 rounded-full border border-border bg-card/60 py-1 pl-1 pr-3 shadow-card transition-smooth hover:border-primary/30">
+          <motion.div
+            whileHover={{ y: -1 }}
+            transition={springSnappy}
+            className="flex items-center gap-2 rounded-full border border-border bg-card/60 py-1 pl-1 pr-3 shadow-card"
+          >
             <InitialAvatar initials={initials} size="sm" />
             <div className="flex flex-col leading-tight">
               <span className="text-xs font-medium">{currentUser?.username}</span>
@@ -95,8 +104,11 @@ export function Header() {
                 {role.toLowerCase()}
               </span>
             </div>
-          </div>
-          <button
+          </motion.div>
+          <motion.button
+            whileHover={{ y: -1 }}
+            whileTap={{ scale: 0.96 }}
+            transition={springSnappy}
             onClick={logout}
             className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-smooth hover:border-primary/30 hover:bg-accent hover:text-foreground"
             aria-label="Sign out"
@@ -104,13 +116,13 @@ export function Header() {
           >
             <LogOut className="h-3.5 w-3.5" />
             <span className="hidden lg:inline">Sign out</span>
-          </button>
+          </motion.button>
         </div>
       </div>
 
       {/* Mobile nav */}
       <div
-        className="flex items-center gap-1 overflow-x-auto border-t border-border/40 px-4 py-2 md:hidden"
+        className="flex items-center gap-1 overflow-x-auto border-t border-border/40 px-4 py-2 md:hidden scrollbar-warm"
         data-testid="mobile-nav"
       >
         <NavButton
@@ -202,8 +214,9 @@ function NavButton({
     <button
       onClick={onClick}
       data-testid={testId}
+      aria-current={active ? "page" : undefined}
       className={cn(
-        "relative rounded-md text-sm font-medium transition-smooth",
+        "relative rounded-md text-sm font-medium transition-smooth cursor-pointer",
         compact ? "px-3 py-1.5" : "px-3 py-2",
         active
           ? "text-primary"
@@ -212,7 +225,11 @@ function NavButton({
     >
       {label}
       {active && (
-        <span className="absolute -bottom-px left-2 right-2 h-0.5 rounded-full bg-primary" />
+        <motion.span
+          layoutId={compact ? "mobile-nav-underline" : "nav-underline"}
+          className="absolute -bottom-px left-2 right-2 h-0.5 rounded-full bg-primary"
+          transition={{ type: "spring", stiffness: 380, damping: 30 }}
+        />
       )}
     </button>
   )
