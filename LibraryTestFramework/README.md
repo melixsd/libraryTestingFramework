@@ -1,6 +1,6 @@
 # Automated Testing Framework for a Library Management Web Application
 
-[![CI](https://img.shields.io/badge/CI-GitHub_Actions-2088FF?logo=githubactions&logoColor=white)](../.github/workflows/ci.yml) [![Tests](https://img.shields.io/badge/tests-150_passed-brightgreen)](#5-current-test-suite) [![Coverage](https://img.shields.io/badge/coverage-91%25%20%28gate%2085%25%29-brightgreen)](#11-reports-and-coverage) [![Property-based](https://img.shields.io/badge/property--based-Hypothesis-9B5DE5)](#testing-techniques) [![e2e](https://img.shields.io/badge/e2e-Selenium_nightly-FF6B6B)](#continuous-integration)
+[![CI](https://github.com/melixsd/libraryTestingFramework/actions/workflows/ci.yml/badge.svg)](https://github.com/melixsd/libraryTestingFramework/actions/workflows/ci.yml) [![Tests](https://img.shields.io/badge/tests-150_passed-brightgreen)](https://github.com/melixsd/libraryTestingFramework/actions) [![Coverage](https://img.shields.io/badge/coverage-91%25%20%28gate%2085%25%29-brightgreen)](https://github.com/melixsd/libraryTestingFramework/actions) [![Property-based](https://img.shields.io/badge/property--based-Hypothesis-9B5DE5)](#testing-techniques) [![e2e](https://img.shields.io/badge/e2e-Selenium_nightly-FF6B6B)](#continuous-integration)
 
 ## 1. Project Overview
 
