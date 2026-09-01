@@ -46,9 +46,9 @@ jobs:
             LibraryTestFramework/tests/reports/pytest-report.html
 
   e2e-nightly:
-    name: Selenium e2e (nightly)
+    name: Selenium e2e (final verification)
     runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     steps:
       - uses: actions/checkout@v5
 
