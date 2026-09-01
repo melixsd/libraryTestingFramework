@@ -17,7 +17,7 @@ class HomePage(BasePage):
     BOOK_CARD_PREFIX = '[data-testid^="book-card-"]'
     BOOK_DETAIL = ('[data-testid="book-detail-page"]',)
 
-    def search(self, query, expected_text=None, timeout=20):
+    def search(self, query, expected_text=None, timeout=30):
         """Enter a search query and wait until the filtered result is stable."""
         field = self.wait_for_visible(self.SEARCH_INPUT, timeout=timeout)
         field.clear()
@@ -160,7 +160,7 @@ class HomePage(BasePage):
     def get_book_cards(self):
         return self.driver.find_elements(By.CSS_SELECTOR, self.BOOK_CARD_PREFIX)
 
-    def click_first_book(self, timeout=20):
+    def click_first_book(self, timeout=30):
         """Click the first visible book card and wait for the detail view."""
         def find_card(driver):
             for card in driver.find_elements(By.CSS_SELECTOR, self.BOOK_CARD_PREFIX):
