@@ -16,6 +16,7 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
 
 from tests.e2e.pages.login_page import LoginPage
 from tests.e2e.pages.home_page import HomePage
@@ -297,8 +298,6 @@ class TestMemberWorkflows:
         """Member login -> search -> borrow -> verify the borrow in My Profile."""
         from tests.e2e.pages.book_detail_page import BookDetailPage
         from tests.e2e.pages.member_page import MemberPage
-        from selenium.webdriver.support.ui import WebDriverWait
-        from selenium.webdriver.common.by import By
 
         login_page.load().login("member1", "Member123!")
         try:
@@ -444,7 +443,6 @@ class TestMembershipPlanChange:
     def test_member_can_switch_plan_and_back(self, login_page, home_page):
         """Member switches to another plan, sees the Current badge move, switches back."""
         from tests.e2e.pages.member_page import MemberPage
-        from selenium.webdriver.support.ui import WebDriverWait
 
         login_page.load().login("member3", "Member123!")
         member_page = None
