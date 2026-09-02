@@ -11,7 +11,7 @@ import { AuthorProfilePage } from "@/components/author/author-profile-page"
 import { AdminProfilePage } from "@/components/admin/admin-profile-page"
 import { TestResultsPage } from "@/components/admin/test-results-page"
 import { LoginPage } from "@/components/auth/login-page"
-import { AnimatePresence, motion } from "framer-motion"
+import { AnimatePresence, motion, MotionConfig } from "framer-motion"
 import { springSoft } from "@/lib/motion"
 
 export default function Home() {
@@ -48,23 +48,25 @@ export default function Home() {
   // If not logged in, show login page
   if (!token || !currentUser) {
     return (
-      <div className="flex min-h-screen flex-col bg-background paper-texture">
-        <Header />
-        <main className="flex-1">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key="login"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8, transition: { duration: 0.15 } }}
-              transition={springSoft}
-            >
-              <LoginPage />
-            </motion.div>
-          </AnimatePresence>
-        </main>
-        <Footer />
-      </div>
+      <MotionConfig reducedMotion="user">
+        <div className="flex min-h-screen flex-col bg-background paper-texture">
+          <Header />
+          <main className="flex-1">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key="login"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8, transition: { duration: 0.15 } }}
+                transition={springSoft}
+              >
+                <LoginPage />
+              </motion.div>
+            </AnimatePresence>
+          </main>
+          <Footer />
+        </div>
+      </MotionConfig>
     )
   }
 
@@ -73,29 +75,31 @@ export default function Home() {
   const effectiveView = currentView === "login" ? "home" : currentView
 
   return (
-    <div className="flex min-h-screen flex-col bg-background paper-texture">
-      <Header />
-      <main className="flex-1">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={effectiveView}
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10, transition: { duration: 0.16 } }}
-            transition={springSoft}
-          >
-            {effectiveView === "home" && <HomePage />}
-            {effectiveView === "book-detail" && <BookDetailPage />}
-            {effectiveView === "member-profile" && currentUser.member_id && (
-              <MemberProfilePage />
-            )}
-            {effectiveView === "author-profile" && <AuthorProfilePage />}
-            {effectiveView === "admin" && canViewAdmin && <AdminProfilePage />}
-            {effectiveView === "test-results" && canViewAdmin && <TestResultsPage />}
-          </motion.div>
-        </AnimatePresence>
-      </main>
-      <Footer />
-    </div>
+    <MotionConfig reducedMotion="user">
+      <div className="flex min-h-screen flex-col bg-background paper-texture">
+        <Header />
+        <main className="flex-1">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={effectiveView}
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10, transition: { duration: 0.16 } }}
+              transition={springSoft}
+            >
+              {effectiveView === "home" && <HomePage />}
+              {effectiveView === "book-detail" && <BookDetailPage />}
+              {effectiveView === "member-profile" && currentUser.member_id && (
+                <MemberProfilePage />
+              )}
+              {effectiveView === "author-profile" && <AuthorProfilePage />}
+              {effectiveView === "admin" && canViewAdmin && <AdminProfilePage />}
+              {effectiveView === "test-results" && canViewAdmin && <TestResultsPage />}
+            </motion.div>
+          </AnimatePresence>
+        </main>
+        <Footer />
+      </div>
+    </MotionConfig>
   )
 }

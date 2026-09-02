@@ -96,6 +96,11 @@ def driver():
             )
         options.binary_location = chrome_binary
     options.add_argument("--headless=new")
+    # Reduced motion keeps the compositor idle between interactions. Chrome
+    # headless can silently drop trusted input (keystrokes, clicks) while
+    # infinite animations keep the frame sink busy — the app honours the
+    # prefers-reduced-motion media query via framer-motion's MotionConfig.
+    options.add_argument("--force-prefers-reduced-motion")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--window-size=1280,720")
