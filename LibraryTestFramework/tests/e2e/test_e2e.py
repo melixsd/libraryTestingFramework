@@ -105,6 +105,8 @@ def driver():
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--window-size=1280,720")
     options.add_argument("--disable-gpu")
+    # Browser console + network logs feed the input-delivery diagnostics.
+    options.set_capability("goog:loggingPrefs", {"browser": "ALL", "performance": "ALL"})
 
     chromedriver_path = _find_chromedriver()
     if chromedriver_path:
