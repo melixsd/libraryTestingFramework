@@ -76,6 +76,19 @@ jobs:
         run: npm install
         working-directory: Library
 
+      # Selenium's input delivery silently drops keystrokes/clicks when the
+      # Chrome and chromedriver versions drift apart (this broke the nightly
+      # repeatedly). Install both from the SAME Chrome-for-testing build so
+      # the pair can never mismatch, and pass them to the driver fixture via
+      # CHROME_BINARY / CHROMEDRIVER_PATH — Selenium Manager is bypassed.
+      - name: Install pinned Chrome-for-testing + matching chromedriver
+        working-directory: Library
+        run: |
+          npx --yes @puppeteer/browsers install chrome@152.0.7977.75
+          npx --yes @puppeteer/browsers install chromedriver@152.0.7977.75
+          test -x chrome/linux-152.0.7977.75/chrome-linux64/chrome
+          test -x chromedriver/linux-152.0.7977.75/chromedriver-linux64/chromedriver
+
       - name: Seed database
         run: python seed_db.py
         working-directory: LibraryTestFramework
@@ -108,7 +121,8 @@ jobs:
       # be measured across the separate uvicorn process the browser drives.
       - name: Run e2e suite
         env:
-          ALLOW_SELENIUM_MANAGER: "1"
+          CHROMEDRIVER_PATH: ${{ github.workspace }}/Library/chromedriver/linux-152.0.7977.75/chromedriver-linux64/chromedriver
+          CHROME_BINARY: ${{ github.workspace }}/Library/chrome/linux-152.0.7977.75/chrome-linux64/chrome
         run: >
           pytest tests/e2e -m e2e -o addopts=""
           --html=tests/reports/e2e-report.html --self-contained-html

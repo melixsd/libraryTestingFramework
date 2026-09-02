@@ -14,12 +14,14 @@ __pycache__/
 
 # Test and coverage artifacts
 tests/reports/
+tests/e2e/screenshots/
 htmlcov/
 .coverage
 .coverage.*
 
 # Local databases
 *.db
+*.db.bak
 *.sqlite
 *.sqlite3
 

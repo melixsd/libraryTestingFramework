@@ -81,10 +81,20 @@ def driver():
     """Set up an isolated Chrome WebDriver for each test.
 
     CHROMEDRIVER_PATH may be supplied when Selenium Manager cannot discover
-    a locally installed driver. No machine-specific path is hard-coded.
+    a locally installed driver. CHROME_BINARY pins the browser executable —
+    when both are set, Selenium Manager is bypassed entirely, which is how
+    CI guarantees the Chrome/chromedriver versions can never drift apart
+    (mismatched pairs silently drop keystrokes and clicks).
     """
     os.makedirs(SCREENSHOT_DIR, exist_ok=True)
     options = Options()
+    chrome_binary = os.getenv("CHROME_BINARY")
+    if chrome_binary:
+        if not Path(chrome_binary).is_file():
+            raise pytest.UsageError(
+                f"CHROME_BINARY is set but the file does not exist: {chrome_binary}"
+            )
+        options.binary_location = chrome_binary
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")

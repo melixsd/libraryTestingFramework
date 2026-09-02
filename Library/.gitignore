@@ -4,6 +4,10 @@ node_modules/
 out/
 build/
 
+# Pinned Chrome-for-testing + chromedriver (installed by CI e2e job)
+chrome/
+chromedriver/
+
 # Environment / secrets
 .env
 .env.*
