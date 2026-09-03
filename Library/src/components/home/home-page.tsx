@@ -15,7 +15,7 @@ import {
   Loader2,
   Sparkles,
 } from "lucide-react"
-import { motion } from "framer-motion"
+import { motion, useReducedMotion } from "framer-motion"
 
 export function HomePage() {
   const allBooks = useLibraryStore((s) => s.books)
@@ -391,10 +391,14 @@ function BookCard({
   onClick: () => void
 }) {
   const available = book.available_copies > 0
+  // Reduced motion users (and the headless e2e browser, which forces the
+  // flag) get cards in their final state: a stalled entrance spring leaves
+  // the card at opacity 0, where it has no readable text for Selenium.
+  const reduceMotion = useReducedMotion()
   return (
     <motion.button
       layout
-      initial={{ opacity: 0, y: 16, scale: 0.97 }}
+      initial={reduceMotion ? false : { opacity: 0, y: 16, scale: 0.97 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, scale: 0.96 }}
       transition={{ ...springSoft, delay: Math.min(index * 0.04, 0.36) }}

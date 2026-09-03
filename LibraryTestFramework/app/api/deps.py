@@ -1,8 +1,4 @@
 """
-This is where all layers connect together.
-Each route gets an instance of its required service via Depends(get_xxx_service),
-without knowing how that service is constructed (Dependency Injection).
-
 Connection chain:
   Router  --Depends-->  Service  --uses-->  Repository  --uses-->  DB Session
 """

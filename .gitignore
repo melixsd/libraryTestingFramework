@@ -1,3 +1,8 @@
 # Runtime databases (regenerated; the app under test uses LibraryTestFramework/seed_db.py)
 Library/prisma/dev.db
 Library/server.log
+
+# Local browser/driver downloads and CI run artifacts
+/tmp/
+/home/
+/e2e-reports.zip

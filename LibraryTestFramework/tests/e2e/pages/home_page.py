@@ -1,6 +1,6 @@
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.common.exceptions import StaleElementReferenceException, ElementClickInterceptedException
+from selenium.common.exceptions import StaleElementReferenceException, ElementClickInterceptedException, TimeoutException
 from selenium.webdriver.support import expected_conditions as EC
 
 from .base_page import BasePage
@@ -19,9 +19,14 @@ class HomePage(BasePage):
 
     def search(self, query, expected_text=None, timeout=30):
         """Enter a search query and wait until the filtered result is stable."""
-        field = self.wait_for_visible(self.SEARCH_INPUT, timeout=timeout)
-        field.clear()
-        field.send_keys(query)
+        # type_text verifies the query landed: Chrome's input stalls drop
+        # trusted keystrokes silently, which would leave the catalogue
+        # unfiltered and the settled wait below would time out.
+        self.type_text(self.SEARCH_INPUT, query, timeout=timeout)
+        # Quiet window between typing and polling: the filtered grid mounts
+        # with an entrance animation that must finish before card text is
+        # readable (see BasePage.settle).
+        self.settle()
 
         query_lower = query.strip().lower()
         expected_lower = expected_text.lower() if expected_text else None
@@ -180,6 +185,16 @@ class HomePage(BasePage):
         except (ElementClickInterceptedException, StaleElementReferenceException):
             card = WebDriverWait(self.driver, timeout).until(find_card)
             self.driver.execute_script("arguments[0].click();", card)
+        try:
+            # Chrome's input stalls can swallow the trusted click without any
+            # exception; if the detail view does not follow shortly, re-click
+            # through the DOM instead of burning the whole timeout.
+            WebDriverWait(self.driver, 4, poll_frequency=0.25).until(
+                EC.visibility_of_element_located((By.CSS_SELECTOR, self.BOOK_DETAIL[0]))
+            )
+        except TimeoutException:
+            card = WebDriverWait(self.driver, timeout, poll_frequency=0.25).until(find_card)
+            self.driver.execute_script("arguments[0].click();", card)
         WebDriverWait(self.driver, timeout, poll_frequency=0.25).until(
             EC.visibility_of_element_located((By.CSS_SELECTOR, self.BOOK_DETAIL[0]))
         )
@@ -209,4 +224,8 @@ class HomePage(BasePage):
             return bool(cards or no_books)
 
         WebDriverWait(self.driver, timeout, poll_frequency=0.25).until(content_ready)
+        # The catalogue mounts with entrance animations (grid, sidebar, cards)
+        # that resolve on animation frames; go quiet so they finish before any
+        # caller starts polling (see BasePage.settle).
+        self.settle()
         return self

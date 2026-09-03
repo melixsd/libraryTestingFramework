@@ -11,7 +11,7 @@ import { AuthorProfilePage } from "@/components/author/author-profile-page"
 import { AdminProfilePage } from "@/components/admin/admin-profile-page"
 import { TestResultsPage } from "@/components/admin/test-results-page"
 import { LoginPage } from "@/components/auth/login-page"
-import { AnimatePresence, motion, MotionConfig } from "framer-motion"
+import { AnimatePresence, motion, MotionConfig, MotionGlobalConfig, useReducedMotion } from "framer-motion"
 import { springSoft } from "@/lib/motion"
 
 export default function Home() {
@@ -24,6 +24,16 @@ export default function Home() {
   const fetchMemberSummary = useLibraryStore((s) => s.fetchMemberSummary)
   const isAdmin = useLibraryStore((s) => s.isAdmin)
   const logout = useLibraryStore((s) => s.logout)
+  const reduceMotion = useReducedMotion()
+
+  // Full reduced-motion support: reducedMotion="user" only skips transform
+  // and layout animations, so opacity entrances still run — and in headless
+  // browsers a spring can stall mid-flight, leaving content permanently stuck
+  // at opacity 0 (present in the DOM but invisible to users and to Selenium).
+  // Skipping every animation renders final states immediately instead.
+  useEffect(() => {
+    MotionGlobalConfig.skipAnimations = !!reduceMotion
+  }, [reduceMotion])
 
   // On mount, if token exists but no user, try to restore session
   useEffect(() => {
@@ -48,7 +58,7 @@ export default function Home() {
   // If not logged in, show login page
   if (!token || !currentUser) {
     return (
-      <MotionConfig reducedMotion="user">
+      <MotionConfig reducedMotion="user" skipAnimations={!!reduceMotion}>
         <div className="flex min-h-screen flex-col bg-background paper-texture">
           <Header />
           <main className="flex-1">
@@ -75,13 +85,13 @@ export default function Home() {
   const effectiveView = currentView === "login" ? "home" : currentView
 
   return (
-    <MotionConfig reducedMotion="user">
-      <div className="flex min-h-screen flex-col bg-background paper-texture">
-        <Header />
-        <main className="flex-1">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={effectiveView}
+      <MotionConfig reducedMotion="user" skipAnimations={!!reduceMotion}>
+        <div className="flex min-h-screen flex-col bg-background paper-texture">
+          <Header />
+          <main className="flex-1">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={effectiveView}
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10, transition: { duration: 0.16 } }}

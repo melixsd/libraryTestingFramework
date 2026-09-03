@@ -135,7 +135,10 @@ export function BookDetailPage() {
             </div>
 
             <div className="mb-3 flex items-end justify-between">
-              <span className="font-serif text-lg font-semibold">
+              <span
+                className="font-serif text-lg font-semibold"
+                data-testid="copies-available"
+              >
                 {book.available_copies} <span className="text-sm font-normal text-muted-foreground">of {book.total_copies}</span>
               </span>
               <span className="text-xs text-muted-foreground">

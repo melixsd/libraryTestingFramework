@@ -3,8 +3,10 @@ Base Page Object for the Library Management System.
 Provides common Selenium helper methods used by all page objects.
 """
 import os
+import time
 from datetime import datetime
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.common.exceptions import StaleElementReferenceException, TimeoutException
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 
@@ -55,6 +57,68 @@ class BasePage:
         return WebDriverWait(self._driver, timeout).until(
             EC.element_to_be_clickable((by, value))
         )
+
+    # Chrome can silently drop trusted keystrokes mid-session (input delivery
+    # stalls that survive navigation — see the e2e probe notes). The drop is
+    # invisible to Selenium: send_keys returns normally, the field just stays
+    # empty, and React never sees an input event. The workaround is to verify
+    # the field value after typing and, when the keystrokes were swallowed,
+    # set the value through the native setter and dispatch a bubbling input
+    # event — the same signal React's controlled inputs listen for.
+    _JS_SET_VALUE = """
+        const el = arguments[0], text = arguments[1];
+        const proto = el instanceof HTMLTextAreaElement
+          ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+        Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, text);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        return el.value;
+    """
+
+    def type_text(self, locator, text, timeout=10):
+        """Type text into a field, verifying that it actually landed.
+
+        Native keystrokes are attempted first; whenever the value does not
+        stick, the element is re-resolved (React may have replaced the node)
+        and the text is set through the native setter with a bubbling input
+        event, which React's controlled inputs register like real typing.
+        """
+        deadline = time.monotonic() + timeout
+        last_error = None
+        while time.monotonic() < deadline:
+            el = self.wait_for_visible(locator, timeout=2)
+            try:
+                el.clear()
+                el.send_keys(text)
+            except StaleElementReferenceException:
+                continue
+            if el.get_attribute("value") == text:
+                return el
+            try:
+                el = self.wait_for_visible(locator, timeout=2)
+                self._driver.execute_script(self._JS_SET_VALUE, el, text)
+            except StaleElementReferenceException:
+                continue
+            if el.get_attribute("value") == text:
+                return el
+            time.sleep(0.5)
+        raise last_error or TimeoutException(
+            f"could not type {text!r} into {locator}: value never verified"
+        )
+
+    def settle(self, seconds=2.5):
+        """Pause all Selenium/CDP activity to let headless Chrome finish rendering.
+
+        React + framer-motion apply entrance states (opacity 0) synchronously
+        and resolve them on later animation frames. Continuous CDP polling from
+        the instant the elements appear can leave that work unfinished: the
+        DOM is complete but the subtree stays at opacity 0, so Selenium reads
+        no text and is_displayed() is False no matter how long it keeps
+        polling. A short quiet window consistently lets the page reach its
+        final rendered state (verified with browser-side probes).
+        """
+        time.sleep(seconds)
+        return self
 
     def is_visible(self, locator, timeout=3):
         """Check if an element is visible within the timeout."""

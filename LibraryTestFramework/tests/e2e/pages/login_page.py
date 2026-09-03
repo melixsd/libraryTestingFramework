@@ -2,6 +2,7 @@
 Wraps Selenium operations for the login form.
 """
 from selenium.webdriver.common.by import By
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
@@ -29,13 +30,27 @@ class LoginPage(BasePage):
 
     def login(self, username, password):
         """Fill credentials, submit, and wait for authenticated navigation."""
-        self.wait_for_visible(self.USERNAME_INPUT).send_keys(username)
-        self.wait_for_visible(self.PASSWORD_INPUT).send_keys(password)
+        # type_text verifies the credentials actually landed: Chrome's input
+        # stalls drop keystrokes silently, and the wait below cannot catch a
+        # failed submit because nav-home is rendered on the login page too.
+        self.type_text(self.USERNAME_INPUT, username)
+        self.type_text(self.PASSWORD_INPUT, password)
         self.wait_for_clickable(self.SUBMIT_BUTTON).click()
 
-        WebDriverWait(self.driver, 10).until(
+        # The login form unmounts only once authentication has succeeded
+        # (AnimatePresence removes it after its exit animation). nav-home is
+        # rendered on the login page as well, so it cannot signal success.
+        # If the submit click was swallowed, retry it once through the DOM.
+        try:
+            WebDriverWait(self.driver, 4).until(
+                lambda d: not d.find_elements(By.CSS_SELECTOR, self.FORM[0])
+            )
+        except TimeoutException:
+            submits = self.driver.find_elements(By.CSS_SELECTOR, self.SUBMIT_BUTTON[0])
+            if submits and not self.is_visible(self.ERROR, timeout=1):
+                self.driver.execute_script("arguments[0].click();", submits[0])
+        WebDriverWait(self.driver, 12).until(
             lambda d: not d.find_elements(By.CSS_SELECTOR, self.FORM[0])
-            or d.find_elements(By.CSS_SELECTOR, self.NAV_HOME[0])
         )
         return self
 

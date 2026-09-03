@@ -9,6 +9,7 @@ These tests require:
 Run with:  pytest tests/e2e/test_e2e.py -m e2e
 """
 import os
+import re
 import shutil
 from pathlib import Path
 import pytest
@@ -36,6 +37,85 @@ def _unique_isbn():
     # The application accepts ISBN-10/ISBN-13 by digit count (it does not
     # validate the checksum). Keep the generated value numeric and 13 digits.
     return "978" + str(uuid.uuid4().int)[-10:]
+
+
+def _return_member_active_borrows(username, password, keep_copy_ids=()):
+    """Return a member's active loans via the backend API.
+
+    The reserve scenario intentionally leaves member2 holding the one-copy
+    book while member1 reserves it. On a reused database those loans
+    accumulate, and once the member reaches the plan's max_books limit the
+    borrow API silently fails (the UI swallows the rejection) — so tests
+    clear leftovers. member2 holds no seeded loans; member1's seeded Clean
+    Code loan (copy 1) is preserved through keep_copy_ids.
+    """
+    import json as _json
+    import urllib.parse
+    import urllib.request
+
+    base = "http://127.0.0.1:8000"
+
+    def _call(path, data=None, token=None, method=None):
+        # A system proxy can intercept localhost calls from urllib; bypass it.
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        request = urllib.request.Request(
+            f"{base}{path}",
+            data=urllib.parse.urlencode(data).encode() if data else None,
+            method=method or ("POST" if data else "GET"),
+        )
+        if data:
+            request.add_header("Content-Type", "application/x-www-form-urlencoded")
+        if token:
+            request.add_header("Authorization", f"Bearer {token}")
+        with opener.open(request, timeout=15) as response:
+            return _json.loads(response.read().decode())
+
+    token = _call("/auth/login", data={"username": username, "password": password})[
+        "access_token"
+    ]
+    summary = _call("/members/me/summary", token=token)
+    for borrow in summary.get("active_borrows", []):
+        if borrow["copy_id"] in keep_copy_ids:
+            continue
+        try:
+            _call(f"/return/{borrow['id']}", token=token, method="POST")
+        except OSError:
+            pass  # cleanup is best-effort; the borrow may already be gone
+
+
+def _active_borrow_ids(username, password):
+    """Return the set of the member's active borrow ids via the backend API.
+
+    The profile UI lists loans as "Borrow #id (Copy #id)" without the book
+    title, so tests snapshot loan ids before a borrow and recognise the new
+    profile row by the id that appears afterwards.
+    """
+    import json as _json
+    import urllib.parse
+    import urllib.request
+
+    base = "http://127.0.0.1:8000"
+
+    def _call(path, data=None, token=None, method=None):
+        # A system proxy can intercept localhost calls from urllib; bypass it.
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        request = urllib.request.Request(
+            f"{base}{path}",
+            data=urllib.parse.urlencode(data).encode() if data else None,
+            method=method or ("POST" if data else "GET"),
+        )
+        if data:
+            request.add_header("Content-Type", "application/x-www-form-urlencoded")
+        if token:
+            request.add_header("Authorization", f"Bearer {token}")
+        with opener.open(request, timeout=15) as response:
+            return _json.loads(response.read().decode())
+
+    token = _call("/auth/login", data={"username": username, "password": password})[
+        "access_token"
+    ]
+    summary = _call("/members/me/summary", token=token)
+    return {borrow["id"] for borrow in summary.get("active_borrows", [])}
 
 
 def _find_chromedriver():
@@ -101,6 +181,14 @@ def driver():
     # infinite animations keep the frame sink busy — the app honours the
     # prefers-reduced-motion media query via framer-motion's MotionConfig.
     options.add_argument("--force-prefers-reduced-motion")
+    # Incognito is what actually stops the input loss: in a normal profile,
+    # right after a successful password login, Chrome shows an invisible
+    # headless bubble (save-password flow) that swallows all raw keyboard and
+    # mouse input for the tab. Keystrokes and clicks then vanish while the
+    # page stays scriptable, survives navigation, and is not fixed by
+    # credentials_enable_service prefs or reduced motion — but incognito
+    # never shows the bubble (verified: input alive indefinitely).
+    options.add_argument("--incognito")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--window-size=1280,720")
@@ -312,7 +400,7 @@ class TestMemberWorkflows:
     """High-value end-to-end workflows covering real member behavior."""
 
     def test_member_can_borrow_and_see_book_in_profile(self, login_page, home_page):
-        """Member login -> search -> borrow -> verify the borrow in My Profile."""
+        """Member login -> borrow -> verify the borrow in My Profile."""
         from tests.e2e.pages.book_detail_page import BookDetailPage
         from tests.e2e.pages.member_page import MemberPage
 
@@ -322,7 +410,9 @@ class TestMemberWorkflows:
             login_page.wait_for_visible(LoginPage.NAV_HOME)
             # Wait for home page content to be fully rendered (books fetched, search section, books grid)
             home_page.wait_for_home_content(timeout=45)
-            home_page.search("1984", expected_text="1984")
+            # 1984 is in the seeded catalogue and typed search has its own
+            # test (test_search_books), so the card is opened straight from
+            # the unfiltered catalogue.
             home_page.open_book_by_title("1984")
 
             detail = BookDetailPage(login_page.driver)
@@ -330,28 +420,34 @@ class TestMemberWorkflows:
             assert detail.get_title() == "1984"
             assert detail.get_availability() == "Available"
 
-            detail.click_borrow().wait_for_borrow_button_to_finish()
             # Do not continue until the UI reflects the server-side mutation.
-            WebDriverWait(login_page.driver, 15).until(
-                lambda d: d.find_elements(By.CSS_SELECTOR, '[data-testid="status-checked-out"]')
-            )
+            # Borrowing one copy of a multi-copy title keeps the badge on
+            # "Available" — the observable change is the remaining-copies
+            # count dropping (2 -> 1 for the seeded 1984). Capture the count
+            # before clicking: it reads the post-borrow value afterwards.
+            copies_before = detail.get_copies_available()
+            # Snapshot the member's loan ids through the API so the new profile
+            # row can be recognised by id even though the UI shows no titles.
+            borrow_ids_before = _active_borrow_ids("member1", "Member123!")
+            detail.click_borrow().wait_for_borrow_button_to_finish()
+            detail.wait_for_copies_to_change(copies_before)
 
             member_page = MemberPage(login_page.driver).navigate()
-            # Wait for borrowed row to appear
-            WebDriverWait(login_page.driver, 10).until(
-                lambda d: len(d.find_elements(By.CSS_SELECTOR, '[data-testid^="borrow-"]')) > 0
-            )
-            borrowed_rows = member_page.get_borrowed_rows()
-            assert borrowed_rows, "A successful borrow should appear in My Profile"
+            # Profile borrow rows render as "Borrow #id (Copy #id)" without the
+            # book title, so the new loan is identified by its borrow id: the
+            # row that appears after the borrow and was not there before. The
+            # borrow itself is tied to 1984 by the copies-drop check above.
+            def _new_borrow_row(d):
+                for row in d.find_elements(By.CSS_SELECTOR, '[data-testid^="borrow-"]'):
+                    match = re.fullmatch(r"borrow-(\d+)", row.get_attribute("data-testid") or "")
+                    if match and int(match.group(1)) not in borrow_ids_before:
+                        return row
+                return False
 
+            target_row = WebDriverWait(login_page.driver, 15).until(_new_borrow_row)
             # Clean up the borrow created by this test. Never assume a database
             # primary key (for example borrow-1); seeded data already contains
             # other borrow records and IDs can differ between runs.
-            target_row = next(
-                (row for row in borrowed_rows if "1984" in row.text),
-                None,
-            )
-            assert target_row is not None, "The 1984 borrow should appear in My Profile"
             borrow_testid = target_row.get_attribute("data-testid")
             return_button = target_row.find_element(
                 By.CSS_SELECTOR, f'[data-testid="btn-return-{borrow_testid.split("-", 1)[1]}"]'
@@ -367,6 +463,16 @@ class TestMemberWorkflows:
             raise
         finally:
             login_page.logout()
+            # A failed run must not leave the borrowed copy behind: the next
+            # run would then see "Checked out" before even borrowing. The
+            # seeded Clean Code loan (copy 1) is part of the expected state
+            # and is kept.
+            try:
+                _return_member_active_borrows(
+                    "member1", "Member123!", keep_copy_ids={1}
+                )
+            except Exception:
+                pass
 
     def test_member_can_reserve_unavailable_book(self, login_page, home_page, admin_page):
         """Admin creates a one-copy book -> member borrows it -> another member reserves it."""
@@ -385,6 +491,10 @@ class TestMemberWorkflows:
             login_page.logout()
 
         # Member 2 takes the only available copy.
+        # Clear loans left by earlier failed runs first: the Student plan
+        # allows 3 books, and a full card means the borrow API rejects the
+        # new loan (the UI swallows the error and the book stays Available).
+        _return_member_active_borrows("member2", "Member123!")
         login_page.load().login("member2", "Member123!")
         try:
             home_page.search(title, expected_text=title)

@@ -44,12 +44,14 @@ class MemberPage(BasePage):
         WebDriverWait(self.driver, timeout, poll_frequency=0.25).until(click_profile)
         try:
             WebDriverWait(self.driver, 8, poll_frequency=0.25).until(profile_page_visible)
-            return self
         except Exception:
             # One controlled retry handles a header re-render during the click.
             WebDriverWait(self.driver, timeout, poll_frequency=0.25).until(click_profile)
             WebDriverWait(self.driver, timeout, poll_frequency=0.25).until(profile_page_visible)
-            return self
+        # Profile rows mount with entrance animations; go quiet so they finish
+        # before callers poll row text (see BasePage.settle).
+        self.settle()
+        return self
 
     def get_borrowed_rows(self):
         """Return currently displayed borrowed-book rows."""

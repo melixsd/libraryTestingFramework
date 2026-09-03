@@ -45,7 +45,7 @@ class AdminPage(BasePage):
         from selenium.webdriver.support.ui import Select
 
         self.wait_for_clickable(self.BOOKS_TOOLBAR_ADD).click()
-        self.wait_for_visible(self.ADD_BOOK_TITLE).send_keys(title)
+        self.type_text(self.ADD_BOOK_TITLE, title)
 
         author = self.wait_for_visible(self.ADD_BOOK_AUTHOR)
         WebDriverWait(self.driver, 10).until(
@@ -64,12 +64,10 @@ class AdminPage(BasePage):
                     select.select_by_value(value)
                     break
 
-        self.wait_for_visible(self.ADD_BOOK_ISBN).send_keys(isbn)
-        self.wait_for_visible(self.ADD_BOOK_PRICE).clear()
-        self.driver.find_element(By.CSS_SELECTOR, self.ADD_BOOK_PRICE[0]).send_keys(price)
-        self.wait_for_visible(self.ADD_BOOK_COPIES).clear()
-        self.driver.find_element(By.CSS_SELECTOR, self.ADD_BOOK_COPIES[0]).send_keys(copies)
-        self.wait_for_visible(self.ADD_BOOK_DESCRIPTION).send_keys(description)
+        self.type_text(self.ADD_BOOK_ISBN, isbn)
+        self.type_text(self.ADD_BOOK_PRICE, price)
+        self.type_text(self.ADD_BOOK_COPIES, copies)
+        self.type_text(self.ADD_BOOK_DESCRIPTION, description)
         self.wait_for_clickable(self.ADD_BOOK_SUBMIT).click()
 
         return self.wait_for_book_title(title)
