@@ -17,6 +17,9 @@ class BorrowOut(BaseModel):
     returned: bool
     renewed_count: int
     fine_amount: float
+    # Denormalised for display: the member profile shows the borrowed book's
+    # title instead of a bare copy number. None when not explicitly resolved.
+    book_title: str | None = None
 
     class Config:
         from_attributes = True

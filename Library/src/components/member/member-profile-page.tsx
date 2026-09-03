@@ -16,7 +16,7 @@ import {
   Inbox,
   XCircle,
 } from "lucide-react"
-import { motion } from "framer-motion"
+import { motion, useReducedMotion } from "framer-motion"
 import { cn } from "@/lib/utils"
 import { ApiError } from "@/lib/api"
 import { springSoft, springSnappy, fadeUp, staggerContainer } from "@/lib/motion"
@@ -86,6 +86,7 @@ export function MemberProfilePage() {
   const activeBorrows = memberSummary.active_borrows
   const reservations = memberSummary.reservations
   const membership = member.membership_type
+  const reduceMotion = useReducedMotion()
   const usagePct =
     membership.max_books > 0
       ? Math.min(Math.round((activeBorrows.length / membership.max_books) * 100), 100)
@@ -338,7 +339,7 @@ export function MemberProfilePage() {
             {reservations.map((res, i) => (
               <motion.div
                 key={res.id}
-                initial={{ opacity: 0, x: -12 }}
+                initial={reduceMotion ? false : { opacity: 0, x: -12 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ ...springSoft, delay: Math.min(i * 0.06, 0.3) }}
               >
@@ -348,7 +349,7 @@ export function MemberProfilePage() {
                 >
                   <div className="min-w-0 flex-1">
                     <h3 className="truncate font-serif text-base font-semibold">
-                      Book #{res.book_id}
+                      {res.book_title ?? `Book #${res.book_id}`}
                     </h3>
                     <p className="text-xs text-muted-foreground">
                       Reserved on {formatDate(res.reservation_date)}
@@ -475,10 +476,14 @@ function BorrowedBookRow({
     (due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
   )
   const overdue = daysLeft < 0
+  // Reduced motion users (and the headless e2e browser, which forces the
+  // flag) get rows in their final state: a stalled entrance spring leaves
+  // the row at opacity 0, where it has no readable text for Selenium.
+  const reduceMotion = useReducedMotion()
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
+      initial={reduceMotion ? false : { opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ ...springSoft, delay: Math.min(index * 0.06, 0.3) }}
     >
@@ -488,10 +493,10 @@ function BorrowedBookRow({
       >
         <div className="min-w-0 flex-1">
           <h3 className="truncate font-serif text-base font-semibold tracking-tight">
-            Borrow #{borrow.id} (Copy #{borrow.copy_id})
+            {borrow.book_title ?? `Borrow #${borrow.id}`}
           </h3>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Borrowed {formatDate(borrow.borrow_date)}
+            Copy #{borrow.copy_id} · Borrowed {formatDate(borrow.borrow_date)}
           </p>
           <div className="mt-2.5 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">

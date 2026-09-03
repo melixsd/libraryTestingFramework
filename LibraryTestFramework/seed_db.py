@@ -12,7 +12,7 @@ from app.database import SessionLocal, engine, Base
 from app.core.security import hash_password
 from app.models import (
     User, UserRole, Member, MembershipType, Book, BookCopy, CopyStatus,
-    Author, Publisher, Category, BorrowRecord,
+    Author, Publisher, Category, BorrowRecord, Reservation,
 )
 
 Base.metadata.create_all(bind=engine)
@@ -31,6 +31,33 @@ def get_or_create(db, model, defaults=None, **filters):
 def seed():
     db = SessionLocal()
     try:
+        # ---------- Purge leftovers from previous e2e runs ----------
+        # The e2e suite creates throwaway "E2E ..." books through the admin UI
+        # and there is no book-delete endpoint, so they accumulate in a
+        # long-lived local database. Remove them (with their copies, loans,
+        # reservations and author links) so the catalogue stays real books.
+        e2e_books = db.query(Book).filter(Book.title.like("E2E %")).all()
+        for book in e2e_books:
+            copy_ids = [
+                copy_id for (copy_id,) in db.query(BookCopy.id).filter(
+                    BookCopy.book_id == book.id
+                ).all()
+            ]
+            if copy_ids:
+                db.query(BorrowRecord).filter(
+                    BorrowRecord.copy_id.in_(copy_ids)
+                ).delete(synchronize_session=False)
+            db.query(Reservation).filter(
+                Reservation.book_id == book.id
+            ).delete(synchronize_session=False)
+            db.query(BookCopy).filter(
+                BookCopy.book_id == book.id
+            ).delete(synchronize_session=False)
+            db.delete(book)
+        if e2e_books:
+            db.commit()
+            print(f"[OK] Purged {len(e2e_books)} leftover e2e book(s).")
+
         # ---------- Membership types ----------
         student, _ = get_or_create(
             db, MembershipType, name="Student",
@@ -109,37 +136,39 @@ def seed():
 
         # ---------- Books + copies ----------
         # (title, ISBN, price, year, publisher, category, author names, copies)
+        # Copy counts mirror realistic demand: rare/reference titles have a
+        # single copy, popular fiction goes up to 10 and 15.
         book_specs = [
-            ("Clean Code", "9780132350884", 42.99, 2008, oreilly, tech, ["Robert C. Martin"], 3),
-            ("1984", "9780451524935", 15.50, 1949, penguin, fiction, ["George Orwell"], 2),
+            ("Clean Code", "9780132350884", 42.99, 2008, oreilly, tech, ["Robert C. Martin"], 4),
+            ("1984", "9780451524935", 15.50, 1949, penguin, fiction, ["George Orwell"], 3),
             ("The Art of Computer Programming, Vol. 1", "9780201896831", 89.99, 1968, oreilly, reference, ["Donald Knuth"], 1),
-            ("Harry Potter and the Philosopher's Stone", "9780747532743", 19.99, 1997, penguin, fiction, ["J. K. Rowling"], 4),
-            ("Pride and Prejudice", "9780141439518", 12.99, 1813, penguin, fiction, ["Jane Austen"], 3),
-            ("Murder on the Orient Express", "9780062693662", 14.99, 1934, penguin, fiction, ["Agatha Christie"], 3),
+            ("Harry Potter and the Philosopher's Stone", "9780747532743", 19.99, 1997, penguin, fiction, ["J. K. Rowling"], 10),
+            ("Pride and Prejudice", "9780141439518", 12.99, 1813, penguin, fiction, ["Jane Austen"], 4),
+            ("Murder on the Orient Express", "9780062693662", 14.99, 1934, penguin, fiction, ["Agatha Christie"], 5),
             ("Norwegian Wood", "9780375704024", 17.99, 1987, penguin, fiction, ["Haruki Murakami"], 2),
-            ("One Hundred Years of Solitude", "9780060883287", 18.99, 1967, penguin, fiction, ["Gabriel García Márquez"], 2),
+            ("One Hundred Years of Solitude", "9780060883287", 18.99, 1967, penguin, fiction, ["Gabriel García Márquez"], 3),
             ("War and Peace", "9780199232765", 24.99, 1869, penguin, fiction, ["Leo Tolstoy"], 2),
             ("Crime and Punishment", "9780486415871", 13.99, 1866, penguin, fiction, ["Fyodor Dostoevsky"], 3),
-            ("Sapiens", "9780062316097", 21.99, 2011, penguin, reference, ["Yuval Noah Harari"], 2),
-            ("Frankenstein", "9780486282114", 10.99, 1818, penguin, fiction, ["Mary Shelley"], 3),
-            ("The Great Gatsby", "9780743273565", 11.99, 1925, penguin, fiction, ["F. Scott Fitzgerald"], 3),
-            ("Fahrenheit 451", "9781451678182", 14.99, 1953, penguin, fiction, ["Ray Bradbury"], 3),
+            ("Sapiens", "9780062316097", 21.99, 2011, penguin, reference, ["Yuval Noah Harari"], 5),
+            ("Frankenstein", "9780486282114", 10.99, 1818, penguin, fiction, ["Mary Shelley"], 4),
+            ("The Great Gatsby", "9780743273565", 11.99, 1925, penguin, fiction, ["F. Scott Fitzgerald"], 6),
+            ("Fahrenheit 451", "9781451678182", 14.99, 1953, penguin, fiction, ["Ray Bradbury"], 4),
             ("Foundation", "9780553293357", 16.99, 1951, penguin, fiction, ["Isaac Asimov"], 3),
-            ("The Shining", "9780307743657", 18.99, 1977, penguin, fiction, ["Stephen King"], 2),
+            ("The Shining", "9780307743657", 18.99, 1977, penguin, fiction, ["Stephen King"], 3),
             ("Beloved", "9781400033416", 16.99, 1987, penguin, fiction, ["Toni Morrison"], 2),
             ("Mrs Dalloway", "9780156628709", 12.99, 1925, penguin, fiction, ["Virginia Woolf"], 2),
-            ("The Kite Runner", "9781594631931", 16.99, 2003, penguin, fiction, ["Khaled Hosseini"], 3),
-            ("The Alchemist", "9780062315007", 14.99, 1988, penguin, fiction, ["Paulo Coelho"], 4),
+            ("The Kite Runner", "9781594631931", 16.99, 2003, penguin, fiction, ["Khaled Hosseini"], 4),
+            ("The Alchemist", "9780062315007", 14.99, 1988, penguin, fiction, ["Paulo Coelho"], 8),
             ("Clean Architecture", "9780134494166", 44.99, 2017, oreilly, tech, ["Robert C. Martin"], 3),
             ("The Pragmatic Programmer", "9780135957059", 49.99, 2019, oreilly, tech, ["Robert C. Martin"], 3),
             ("Introduction to Algorithms", "9780262046305", 79.99, 2022, oreilly, reference, ["Donald Knuth"], 1),
             ("The Code Book", "9780385495325", 22.99, 1999, penguin, tech, ["Simon Singh"], 2),
             ("Design Patterns", "9780201633610", 54.99, 1994, oreilly, tech, ["Robert C. Martin"], 2),
-            ("The Martian", "9780804139021", 17.99, 2014, penguin, fiction, ["Andy Weir"], 3),
-            ("Dune", "9780441172719", 18.99, 1965, penguin, fiction, ["Frank Herbert"], 3),
-            ("The Hobbit", "9780547928227", 15.99, 1937, penguin, fiction, ["J. R. R. Tolkien"], 4),
-            ("Brave New World", "9780060850524", 13.99, 1932, penguin, fiction, ["Aldous Huxley"], 2),
-            ("The Little Prince", "9780156012195", 10.99, 1943, penguin, fiction, ["Antoine de Saint-Exupéry"], 3),
+            ("The Martian", "9780804139021", 17.99, 2014, penguin, fiction, ["Andy Weir"], 6),
+            ("Dune", "9780441172719", 18.99, 1965, penguin, fiction, ["Frank Herbert"], 7),
+            ("The Hobbit", "9780547928227", 15.99, 1937, penguin, fiction, ["J. R. R. Tolkien"], 15),
+            ("Brave New World", "9780060850524", 13.99, 1932, penguin, fiction, ["Aldous Huxley"], 3),
+            ("The Little Prince", "9780156012195", 10.99, 1943, penguin, fiction, ["Antoine de Saint-Exupéry"], 4),
         ]
 
         books = {}
@@ -161,10 +190,12 @@ def seed():
             elif not book.authors:
                 book.authors = [authors[name] for name in author_names]
 
-            # Preserve existing copy state, but add the expected copies if a book
-            # was previously seeded with no copies.
-            if is_new or not book.copies:
-                for i in range(1, n_copies + 1):
+            # Keep the copy count in line with the spec: create the initial
+            # copies for new books and top up when a book was seeded before
+            # the spec grew (existing copies and their loan state untouched).
+            existing_copies = len(book.copies)
+            if existing_copies < n_copies:
+                for i in range(existing_copies + 1, n_copies + 1):
                     db.add(BookCopy(book_id=book.id, copy_number=i))
                 db.flush()
             books[isbn] = book

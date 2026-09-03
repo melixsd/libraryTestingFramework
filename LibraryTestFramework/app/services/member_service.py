@@ -1,5 +1,5 @@
 from app.core.exceptions import NotFoundError, DuplicateError, BusinessRuleError
-from app.models import Member, BorrowRecord, Reservation
+from app.models import Member, BorrowRecord, Reservation, ReservationStatus
 from app.repositories.member_repository import MemberRepository
 from app.repositories.catalog_repository import MembershipTypeRepository
 from app.schemas.member import MemberCreate
@@ -67,7 +67,34 @@ class MemberService:
         reservations = self.member_repo.get_reservations_by_member(member_id)
         return {
             "member": member,
-            "active_borrows": active_borrows,
-            "reservations": reservations,
+            # The profile UI shows real book titles, so resolve them here
+            # rather than leaking copy/book ids into the member-facing view.
+            "active_borrows": [
+                {
+                    "id": b.id,
+                    "copy_id": b.copy_id,
+                    "member_id": b.member_id,
+                    "borrow_date": b.borrow_date,
+                    "due_date": b.due_date,
+                    "return_date": b.return_date,
+                    "returned": b.returned,
+                    "renewed_count": b.renewed_count,
+                    "fine_amount": b.fine_amount,
+                    "book_title": b.copy.book.title if b.copy and b.copy.book else None,
+                }
+                for b in active_borrows
+            ],
+            "reservations": [
+                {
+                    "id": r.id,
+                    "book_id": r.book_id,
+                    "member_id": r.member_id,
+                    "reservation_date": r.reservation_date,
+                    "status": r.status.value if isinstance(r.status, ReservationStatus) else r.status,
+                    "expiry_date": r.expiry_date,
+                    "book_title": r.book.title if r.book else None,
+                }
+                for r in reservations
+            ],
             "total_fines": member.outstanding_fine,
         }

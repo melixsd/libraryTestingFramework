@@ -13,6 +13,9 @@ export function Header() {
   const logout = useLibraryStore((s) => s.logout)
   const setView = useLibraryStore((s) => s.setView)
 
+  // Signed-out visitors (login screen) get a brand-only bar: no navigation,
+  // no account chip, no sign-out — those only make sense with a session.
+  const signedIn = !!currentUser
   const role = currentUser?.role ?? "member"
   const isAdmin = role === "admin" || role === "librarian"
   const isMember = role === "member"
@@ -48,49 +51,52 @@ export function Header() {
           </div>
         </motion.button>
 
-        {/* Primary nav */}
-        <nav className="ml-6 hidden items-center gap-1 md:flex" aria-label="Primary">
-          <NavButton
-            label="Browse"
-            active={currentView === "home" || currentView === "book-detail"}
-            onClick={() => setView("home")}
-            testId="nav-browse"
-          />
-          {isMember && (
+        {/* Primary nav — only while signed in */}
+        {signedIn && (
+          <nav className="ml-6 hidden items-center gap-1 md:flex" aria-label="Primary">
             <NavButton
-              label="My Profile"
-              active={currentView === "member-profile"}
-              onClick={() => setView("member-profile")}
-              testId="nav-profile"
+              label="Browse"
+              active={currentView === "home" || currentView === "book-detail"}
+              onClick={() => setView("home")}
+              testId="nav-browse"
             />
-          )}
-          <NavButton
-            label="Authors"
-            active={currentView === "author-profile"}
-            onClick={() => setView("author-profile")}
-            testId="nav-authors"
-          />
-          {isAdmin && (
+            {isMember && (
+              <NavButton
+                label="My Profile"
+                active={currentView === "member-profile"}
+                onClick={() => setView("member-profile")}
+                testId="nav-profile"
+              />
+            )}
             <NavButton
-              label="Admin"
-              active={currentView === "admin"}
-              onClick={() => setView("admin")}
-              testId="nav-admin"
+              label="Authors"
+              active={currentView === "author-profile"}
+              onClick={() => setView("author-profile")}
+              testId="nav-authors"
             />
-          )}
-          {isAdmin && (
-            <NavButton
-              label="Test Results"
-              active={currentView === "test-results"}
-              onClick={() => setView("test-results")}
-              testId="nav-test-results"
-            />
-          )}
-        </nav>
+            {isAdmin && (
+              <NavButton
+                label="Admin"
+                active={currentView === "admin"}
+                onClick={() => setView("admin")}
+                testId="nav-admin"
+              />
+            )}
+            {isAdmin && (
+              <NavButton
+                label="Test Results"
+                active={currentView === "test-results"}
+                onClick={() => setView("test-results")}
+                testId="nav-test-results"
+              />
+            )}
+          </nav>
+        )}
 
         <div className="flex-1" />
 
-        <div className="hidden items-center gap-2.5 sm:flex">
+        {signedIn && (
+          <div className="hidden items-center gap-2.5 sm:flex">
           <RoleBadge role={role} />
           <motion.div
             whileHover={{ y: -1 }}
@@ -117,10 +123,12 @@ export function Header() {
             <LogOut className="h-3.5 w-3.5" />
             <span className="hidden lg:inline">Sign out</span>
           </motion.button>
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Mobile nav */}
+      {signedIn && (
       <div
         className="flex items-center gap-1 overflow-x-auto border-t border-border/40 px-4 py-2 md:hidden scrollbar-warm"
         data-testid="mobile-nav"
@@ -175,6 +183,7 @@ export function Header() {
           Sign out
         </button>
       </div>
+      )}
     </header>
   )
 }

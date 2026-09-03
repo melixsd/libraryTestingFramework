@@ -95,6 +95,8 @@ export interface BorrowOut {
   returned: boolean
   renewed_count: number
   fine_amount: number
+  /** Resolved by the backend for display; may be absent on older payloads */
+  book_title?: string | null
 }
 
 // ─── Reservations ───────────────────────────────────
@@ -105,6 +107,8 @@ export interface ReservationOut {
   reservation_date: string
   status: string
   expiry_date: string | null
+  /** Resolved by the backend for display; may be absent on older payloads */
+  book_title?: string | null
 }
 
 // ─── Member Summary ─────────────────────────────────
