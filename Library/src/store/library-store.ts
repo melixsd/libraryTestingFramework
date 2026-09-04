@@ -112,7 +112,15 @@ interface LibraryState extends AsyncSlice, OperationStatus, TestResultsSlice {
   removeCopy: (bookId: number, copyId: number) => Promise<void>
   createAuthor: (data: { name: string; nationality?: string }) => Promise<void>
   deleteAuthor: (authorId: number) => Promise<void>
-  createMember: (data: { full_name: string; email: string; membership_type_id: number }) => Promise<void>
+  register: (data: {
+    username: string
+    email: string
+    password: string
+    full_name: string
+    membership_type_id: number
+  }) => Promise<void>
+  approveMember: (memberId: number) => Promise<void>
+  rejectMember: (memberId: number) => Promise<void>
   payFine: (memberId: number, amount: number) => Promise<void>
 
   // Actions — Borrowing (member)
@@ -362,11 +370,19 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     await get().fetchAuthors()
   },
 
-  createMember: async (data) => {
-    await api.request("/members", {
-      method: "POST",
-      body: JSON.stringify(data),
-    })
+  register: async (data) => {
+    // New signups are pending until an admin approves them, so the user is
+    // NOT logged in afterwards — the auth page shows a confirmation instead.
+    await api.register(data)
+  },
+
+  approveMember: async (memberId) => {
+    await api.approveMember(memberId)
+    await get().fetchMembers()
+  },
+
+  rejectMember: async (memberId) => {
+    await api.rejectMember(memberId)
     await get().fetchMembers()
   },
 

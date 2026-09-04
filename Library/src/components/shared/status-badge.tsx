@@ -1,7 +1,7 @@
 "use client"
 
 import { cn } from "@/lib/utils"
-import { CheckCircle2, XCircle } from "lucide-react"
+import { CheckCircle2, Clock3, XCircle } from "lucide-react"
 
 /** Badge showing member active/inactive status */
 export function MemberStatusBadge({
@@ -28,6 +28,23 @@ export function MemberStatusBadge({
         <XCircle className="h-3 w-3" />
       )}
       {isActive ? "Active" : "Inactive"}
+    </span>
+  )
+}
+
+/** Badge for self-registered signups awaiting admin approval */
+export function MemberPendingBadge({ className }: { className?: string }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium",
+        "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border-amber-200 dark:border-amber-900",
+        className,
+      )}
+      data-testid="status-pending"
+    >
+      <Clock3 className="h-3 w-3" />
+      Pending approval
     </span>
   )
 }

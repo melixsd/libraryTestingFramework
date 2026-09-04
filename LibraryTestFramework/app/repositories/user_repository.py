@@ -12,3 +12,6 @@ class UserRepository(BaseRepository[User]):
 
     def get_by_email(self, email: str) -> User | None:
         return self.db.query(User).filter(User.email == email).first()
+
+    def get_by_member_id(self, member_id: int) -> User | None:
+        return self.db.query(User).filter(User.member_id == member_id).first()

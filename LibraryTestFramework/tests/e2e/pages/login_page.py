@@ -22,6 +22,18 @@ class LoginPage(BasePage):
     NAV_HOME = ('[data-testid="nav-home"]',)
     LOGOUT_BUTTON = ('[data-testid="btn-logout"]',)
 
+    # Sign-up mode of the same auth page
+    SIGNUP_TOGGLE = ('[data-testid="auth-mode-signup"]',)
+    SIGNUP_FORM = ('[data-testid="signup-form"]',)
+    SIGNUP_NAME = ('[data-testid="signup-name"]',)
+    SIGNUP_USERNAME = ('[data-testid="signup-username"]',)
+    SIGNUP_EMAIL = ('[data-testid="signup-email"]',)
+    SIGNUP_PASSWORD = ('[data-testid="signup-password"]',)
+    SIGNUP_PLAN = ('[data-testid="signup-plan"]',)
+    SIGNUP_SUBMIT = ('[data-testid="signup-submit"]',)
+    SIGNUP_SUCCESS = ('[data-testid="signup-success"]',)
+    SIGNUP_SUCCESS_BACK = ('[data-testid="signup-success-back"]',)
+
     def load(self):
         """Navigate to the login page and wait for the form."""
         self.driver.get(self.URL)
@@ -59,6 +71,42 @@ class LoginPage(BasePage):
         if self.is_visible(self.ERROR, timeout=5):
             return self.find(self.ERROR).text
         return ""
+
+    def open_signup(self):
+        """Switch the auth page from sign-in to sign-up mode."""
+        self.wait_for_clickable(self.SIGNUP_TOGGLE).click()
+        self.wait_for_visible(self.SIGNUP_FORM)
+        return self
+
+    def signup(self, full_name, username, email, password):
+        """Submit the signup form and wait for the pending-approval confirmation.
+
+        The membership plan is left on its default (first available) option,
+        mirroring what a user who does not change the preselected plan does.
+        """
+        from selenium.webdriver.support.ui import Select
+
+        self.type_text(self.SIGNUP_NAME, full_name)
+        self.type_text(self.SIGNUP_USERNAME, username)
+        self.type_text(self.SIGNUP_EMAIL, email)
+        self.type_text(self.SIGNUP_PASSWORD, password)
+
+        # The plan options load asynchronously from the public endpoint; wait
+        # until a real option (non-empty value) exists before submitting.
+        WebDriverWait(self.driver, 10).until(
+            lambda d: d.find_elements(
+                By.CSS_SELECTOR, self.SIGNUP_PLAN[0] + " option[value]:not([value=''])"
+            )
+        )
+        self.wait_for_clickable(self.SIGNUP_SUBMIT).click()
+        self.wait_for_visible(self.SIGNUP_SUCCESS, timeout=15)
+        return self
+
+    def back_to_login(self):
+        """Return from the signup confirmation panel to the sign-in form."""
+        self.wait_for_clickable(self.SIGNUP_SUCCESS_BACK).click()
+        self.wait_for_visible(self.FORM)
+        return self
 
     def is_loaded(self):
         """Return True if the login form is visible."""

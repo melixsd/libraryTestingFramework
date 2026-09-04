@@ -10,8 +10,8 @@ The automated testing framework is evaluated by how effectively it verifies thes
 
 ```mermaid
 flowchart TB
-    U[Unit Tests\n50 tests\nFast business logic] --> I[Integration Tests\n16 tests\nAPI + database]
-    I --> E[E2E Tests\n12 tests\nBrowser workflows]
+    U[Unit Tests\n99 tests\nFast business logic] --> I[Integration Tests\n59 tests\nAPI + database]
+    I --> E[E2E Tests\n14 tests\nBrowser workflows]
 ```
 
 The project deliberately keeps E2E coverage smaller because browser tests are slower and more environment-dependent.

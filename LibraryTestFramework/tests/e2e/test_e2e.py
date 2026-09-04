@@ -612,3 +612,60 @@ class TestMembershipPlanChange:
                 except Exception:
                     pass
             login_page.logout()
+
+
+# ==================================================================
+# Signup + admin approval workflow
+# ==================================================================
+
+class TestSignupApprovalWorkflow:
+    """Self-registration stays pending until an administrator approves it."""
+
+    def test_signup_requires_approval_then_member_can_sign_in(self, login_page, admin_page):
+        """Sign up -> login refused while pending -> admin approves -> login works."""
+        import uuid
+
+        from tests.e2e.pages.login_page import LoginPage
+
+        suffix = str(uuid.uuid4().int)[-8:]
+        username = f"e2euser{suffix}"
+        email = f"e2euser{suffix}@test.com"
+        full_name = f"E2E Signup {suffix}"
+        password = "E2eSignup123!"
+
+        # 1. Self-registration from the public auth page.
+        login_page.load().open_signup().signup(full_name, username, email, password)
+        try:
+            # 2. Back on the sign-in form, the pending account must be refused.
+            login_page.back_to_login()
+            login_page.type_text(LoginPage.USERNAME_INPUT, username)
+            login_page.type_text(LoginPage.PASSWORD_INPUT, password)
+            login_page.wait_for_clickable(LoginPage.SUBMIT_BUTTON).click()
+            assert login_page.is_visible(LoginPage.ERROR, timeout=10), (
+                "A pending signup must not be able to sign in"
+            )
+            assert "pending" in login_page.get_error_text().lower()
+        except Exception:
+            login_page.screenshot("signup_pending_login_rejected")
+            raise
+
+        # 3. The admin finds the pending signup in the Members tab and approves it.
+        login_page.load().login("admin", "Admin123!")
+        try:
+            admin_page.navigate().open_members_tab()
+            admin_page.approve_member(email)
+        except Exception:
+            login_page.screenshot("signup_admin_approve")
+            raise
+        finally:
+            login_page.logout()
+
+        # 4. The approved member can now sign in.
+        login_page.load().login(username, password)
+        try:
+            login_page.wait_for_visible(LoginPage.NAV_HOME, timeout=15)
+        except Exception:
+            login_page.screenshot("signup_approved_login")
+            raise
+        finally:
+            login_page.logout()

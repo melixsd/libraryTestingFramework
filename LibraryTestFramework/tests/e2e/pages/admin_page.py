@@ -10,6 +10,8 @@ class AdminPage(BasePage):
     ADMIN_PAGE = ('[data-testid="admin-page"]',)
     NAV_ADMIN = ('[data-testid="nav-admin"]',)
     TAB_BOOKS = ('[data-testid="tab-books"]',)
+    TAB_MEMBERS = ('[data-testid="tab-members"]',)
+    MEMBERS_TABLE = ('[data-testid="members-table"]',)
     BOOKS_TOOLBAR_ADD = ('[data-testid="books-toolbar-add"]',)
     ADD_BOOK_TITLE = ('[data-testid="add-book-title"]',)
     ADD_BOOK_AUTHOR = ('[data-testid="add-book-author"]',)
@@ -86,3 +88,44 @@ class AdminPage(BasePage):
     def is_loaded(self):
         """Return True if the admin page element is visible."""
         return self.is_visible(self.ADMIN_PAGE)
+
+    def open_members_tab(self):
+        """Open the Members tab and wait for its table."""
+        self.wait_for_clickable(self.TAB_MEMBERS).click()
+        self.wait_for_visible(self.MEMBERS_TABLE)
+        return self
+
+    def find_member_row(self, email, timeout=15):
+        """Wait for and return the member row whose text contains the email."""
+
+        def find_row(driver):
+            rows = driver.find_elements(By.CSS_SELECTOR, '[data-testid^="member-row-"]')
+            for row in rows:
+                if email.lower() in row.text.lower():
+                    return row
+            return False
+
+        return WebDriverWait(self.driver, timeout).until(find_row)
+
+    def approve_member(self, email, timeout=15):
+        """Approve a pending signup by email and wait for the Active badge."""
+        row = self.find_member_row(email)
+        button = row.find_element(By.CSS_SELECTOR, '[data-testid^="btn-approve-member-"]')
+        self.driver.execute_script(
+            "arguments[0].scrollIntoView({block: 'center'});", button
+        )
+        self.driver.execute_script("arguments[0].click();", button)
+
+        # The store refetches the members list, so the row is re-rendered:
+        # wait until the fresh row carries the active status badge.
+        def is_active(driver):
+            rows = driver.find_elements(By.CSS_SELECTOR, '[data-testid^="member-row-"]')
+            for current in rows:
+                if email.lower() in current.text.lower():
+                    return current.find_elements(
+                        By.CSS_SELECTOR, '[data-testid="status-active"]'
+                    )
+            return False
+
+        WebDriverWait(self.driver, timeout).until(is_active)
+        return self

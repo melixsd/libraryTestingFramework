@@ -13,17 +13,19 @@ import {
   TrendingUp,
   Library,
   X,
+  Check,
   Save,
   Loader2,
   RefreshCw,
   AlertTriangle,
   Inbox,
   FileQuestion,
+  UserPlus,
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { cn } from "@/lib/utils"
 import { springSoft, springSnappy, fadeUp, staggerContainer } from "@/lib/motion"
-import { MemberStatusBadge } from "@/components/shared/status-badge"
+import { MemberPendingBadge, MemberStatusBadge } from "@/components/shared/status-badge"
 
 type AdminTab = "books" | "authors" | "members"
 
@@ -56,7 +58,7 @@ export function AdminProfilePage() {
 
   const totalAvailable = books.filter((b) => b.available_copies > 0).length
   const activeMembers = members.filter((m) => m.is_active).length
-  const inactiveMembers = members.filter((m) => !m.is_active).length
+  const pendingMembers = members.filter((m) => !m.is_active).length
 
   const anyLoading = booksStatus === "loading" || authorsStatus === "loading" || membersStatus === "loading"
 
@@ -142,9 +144,9 @@ export function AdminProfilePage() {
           />
           <KPI
             icon={TrendingUp}
-            label="Inactive"
-            value={String(inactiveMembers)}
-            tone={inactiveMembers > 0 ? "warning" : "default"}
+            label="Pending approval"
+            value={String(pendingMembers)}
+            tone={pendingMembers > 0 ? "warning" : "default"}
           />
         </motion.div>
       </motion.section>
@@ -829,38 +831,45 @@ function MembersAdmin() {
   const members = useLibraryStore((s) => s.members)
   const membersStatus = useLibraryStore((s) => s.membersStatus)
   const membersError = useLibraryStore((s) => s.membersError)
-  const createMember = useLibraryStore((s) => s.createMember)
+  const approveMember = useLibraryStore((s) => s.approveMember)
+  const rejectMember = useLibraryStore((s) => s.rejectMember)
   const payFine = useLibraryStore((s) => s.payFine)
   const fetchMembers = useLibraryStore((s) => s.fetchMembers)
 
   const [search, setSearch] = useState("")
-  const [showAdd, setShowAdd] = useState(false)
   const [saving, setSaving] = useState(false)
-
-  const [newName, setNewName] = useState("")
-  const [newEmail, setNewEmail] = useState("")
-  const [newTierId, setNewTierId] = useState("2")
+  const [rowError, setRowError] = useState("")
 
   const [payFineMemberId, setPayFineMemberId] = useState<number | null>(null)
   const [payAmount, setPayAmount] = useState("")
 
+  const pendingMembers = members.filter((m) => !m.is_active)
   const filtered = members.filter(
     (m) =>
       m.full_name.toLowerCase().includes(search.toLowerCase()) ||
       m.email.toLowerCase().includes(search.toLowerCase()),
   )
 
-  async function handleAddMember() {
+  async function handleApprove(memberId: number) {
+    setRowError("")
     setSaving(true)
     try {
-      await createMember({
-        full_name: newName,
-        email: newEmail,
-        membership_type_id: parseInt(newTierId),
-      })
-      setShowAdd(false)
-      setNewName("")
-      setNewEmail("")
+      await approveMember(memberId)
+    } catch (err) {
+      setRowError(err instanceof Error ? err.message : "Failed to approve member")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleReject(memberId: number) {
+    if (!confirm("Reject this signup? The member record and its login will be removed.")) return
+    setRowError("")
+    setSaving(true)
+    try {
+      await rejectMember(memberId)
+    } catch (err) {
+      setRowError(err instanceof Error ? err.message : "Failed to reject signup")
     } finally {
       setSaving(false)
     }
@@ -918,10 +927,24 @@ function MembersAdmin() {
         search={search}
         onSearch={setSearch}
         placeholder="Search members..."
-        actionLabel="Add member"
-        onAction={() => setShowAdd(true)}
         testId="members-toolbar"
       />
+
+      {pendingMembers.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={springSoft}
+          className="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900 dark:bg-amber-950/30"
+          data-testid="pending-signups-banner"
+        >
+          <UserPlus className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+          <p className="flex-1 text-sm text-amber-800 dark:text-amber-200">
+            {pendingMembers.length} signup{pendingMembers.length > 1 ? "s" : ""} awaiting
+            approval. Members can sign in once approved.
+          </p>
+        </motion.div>
+      )}
 
       <motion.div layout className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
         <div className="overflow-x-auto">
@@ -951,7 +974,11 @@ function MembersAdmin() {
                     {member.email}
                   </td>
                   <td className="px-4 py-3">
-                    <MemberStatusBadge isActive={member.is_active} />
+                    {member.is_active ? (
+                      <MemberStatusBadge isActive={member.is_active} />
+                    ) : (
+                      <MemberPendingBadge />
+                    )}
                   </td>
                   <td className="hidden px-4 py-3 md:table-cell">
                     <span className="rounded-md bg-secondary px-2 py-0.5 text-xs font-medium">
@@ -973,6 +1000,34 @@ function MembersAdmin() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1">
+                      {!member.is_active && (
+                        <>
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            transition={springSnappy}
+                            onClick={() => handleApprove(member.id)}
+                            disabled={saving}
+                            className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-800 transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
+                            data-testid={`btn-approve-member-${member.id}`}
+                          >
+                            <Check className="h-3 w-3" />
+                            Approve
+                          </motion.button>
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            transition={springSnappy}
+                            onClick={() => handleReject(member.id)}
+                            disabled={saving}
+                            className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-medium text-rose-800 transition-colors hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300"
+                            data-testid={`btn-reject-member-${member.id}`}
+                          >
+                            <X className="h-3 w-3" />
+                            Reject
+                          </motion.button>
+                        </>
+                      )}
                       {member.outstanding_fine > 0 && (
                         <motion.button
                           whileHover={{ scale: 1.05 }}
@@ -1005,73 +1060,24 @@ function MembersAdmin() {
             <Inbox className="mb-2 h-8 w-8 text-muted-foreground/40" />
             <p className="text-sm font-medium">No members yet</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Click "Add member" to register your first member.
+              Visitors can sign up from the login page — their requests appear here for approval.
             </p>
           </div>
         )}
       </motion.div>
 
-      {/* Add member dialog */}
-      <AnimatePresence>
-        {showAdd && (
-          <Modal title="Add new member" onClose={() => setShowAdd(false)}>
-            <div className="space-y-3">
-              <Field label="Full name" full>
-                <Input
-                  value={newName}
-                  onChange={setNewName}
-                  placeholder="John Doe"
-                  testId="add-member-name"
-                />
-              </Field>
-              <Field label="Email" full>
-                <Input
-                  value={newEmail}
-                  onChange={setNewEmail}
-                  placeholder="john@example.com"
-                  testId="add-member-email"
-                />
-              </Field>
-              <Field label="Membership tier" full>
-                <select
-                  value={newTierId}
-                  onChange={(e) => setNewTierId(e.target.value)}
-                  data-testid="add-member-tier"
-                  className="h-10 w-full cursor-pointer rounded-lg border border-border bg-background px-3 text-sm outline-none transition-smooth focus:border-primary"
-                >
-                  <option value="1">Student</option>
-                  <option value="2">Regular</option>
-                  <option value="3">Premium</option>
-                </select>
-              </Field>
-            </div>
-            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <button
-                onClick={() => setShowAdd(false)}
-                className="cursor-pointer rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent"
-              >
-                Cancel
-              </button>
-              <motion.button
-                whileHover={{ scale: saving ? 1 : 1.02 }}
-                whileTap={{ scale: saving ? 1 : 0.97 }}
-                transition={springSnappy}
-                onClick={handleAddMember}
-                disabled={saving || !newName.trim() || !newEmail.trim()}
-                data-testid="btn-add-member-submit"
-                className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {saving ? (
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4" />
-                )}
-                Create member
-              </motion.button>
-            </div>
-          </Modal>
-        )}
-      </AnimatePresence>
+      {rowError && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={springSoft}
+          className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-300"
+          data-testid="members-row-error"
+          role="alert"
+        >
+          {rowError}
+        </motion.div>
+      )}
 
       {/* Pay fine dialog */}
       <AnimatePresence>
@@ -1208,8 +1214,8 @@ function Toolbar({
   search: string
   onSearch: (v: string) => void
   placeholder: string
-  actionLabel: string
-  onAction: () => void
+  actionLabel?: string
+  onAction?: () => void
   testId?: string
 }) {
   return (
@@ -1227,17 +1233,19 @@ function Toolbar({
           className="h-10 w-full rounded-lg border border-border bg-card pl-9 pr-3 text-sm shadow-card outline-none transition-smooth placeholder:text-muted-foreground/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/15"
         />
       </div>
-      <motion.button
-        whileHover={{ y: -1 }}
-        whileTap={{ scale: 0.97 }}
-        transition={springSnappy}
-        onClick={onAction}
-        data-testid={`${testId}-add`}
-        className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-card transition-colors hover:bg-primary/90"
-      >
-        <Plus className="h-4 w-4" />
-        {actionLabel}
-      </motion.button>
+      {actionLabel && onAction && (
+        <motion.button
+          whileHover={{ y: -1 }}
+          whileTap={{ scale: 0.97 }}
+          transition={springSnappy}
+          onClick={onAction}
+          data-testid={`${testId}-add`}
+          className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-card transition-colors hover:bg-primary/90"
+        >
+          <Plus className="h-4 w-4" />
+          {actionLabel}
+        </motion.button>
+      )}
     </div>
   )
 }

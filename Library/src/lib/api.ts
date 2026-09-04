@@ -179,6 +179,20 @@ export async function getMemberSummary(): Promise<MemberSummaryOut> {
   return request<MemberSummaryOut>("/members/me/summary")
 }
 
+/** Approve a pending self-registered member (staff only). */
+export async function approveMember(memberId: number): Promise<MemberOut> {
+  return request<MemberOut>(`/members/${memberId}/approve`, {
+    method: "POST",
+  })
+}
+
+/** Reject a pending self-registered signup (staff only). */
+export async function rejectMember(memberId: number): Promise<void> {
+  return request<void>(`/members/${memberId}/reject`, {
+    method: "POST",
+  })
+}
+
 export async function payFine(memberId: number, amount: number): Promise<MemberOut> {
   return request<MemberOut>(`/members/${memberId}/pay-fine?amount=${amount}`, {
     method: "POST",

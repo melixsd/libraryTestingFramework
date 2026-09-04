@@ -172,11 +172,12 @@ def _client():
 # ==================================================================
 
 class TestAuthFlow:
-    """Full authentication flow: register -> login -> /me."""
+    """Full authentication flow: register -> admin approval -> login -> /me."""
 
     def test_register_and_login(self, db_session):
         db = db_session
         mt = _seed_membership_type(db)
+        _seed_admin_user(db)
 
         c = _client()
         # Register
@@ -192,14 +193,134 @@ class TestAuthFlow:
         assert user_data["username"] == "newuser"
         assert user_data["role"] == "member"
 
-        # Login
+        # A fresh signup is pending: login is refused until an admin approves it
+        resp = c.post(
+            "/auth/login",
+            data={"username": "newuser", "password": "password123"},
+        )
+        assert resp.status_code == 401
+        assert "pending" in resp.json()["detail"].lower()
+
+        # Admin sees the pending signup in the member list and approves it
+        admin_token = _login(c, "admin", "Admin123!")
+        members = c.get("/members", headers=_auth_header(admin_token)).json()
+        target = next(m for m in members if m["email"] == "newuser@test.com")
+        assert target["is_active"] is False
+
+        resp = c.post(
+            f"/members/{target['id']}/approve", headers=_auth_header(admin_token)
+        )
+        assert resp.status_code == 200
+        assert resp.json()["is_active"] is True
+
+        # Login now succeeds
         token = _login(c, "newuser", "password123")
-        assert token is not None
 
         # Get /me
         resp = c.get("/auth/me", headers=_auth_header(token))
         assert resp.status_code == 200
         assert resp.json()["username"] == "newuser"
+
+    def test_reject_pending_signup_removes_member_and_login(self, db_session):
+        db = db_session
+        mt = _seed_membership_type(db)
+        _seed_admin_user(db)
+
+        c = _client()
+        resp = c.post("/auth/register", json={
+            "username": "rejectme",
+            "email": "rejectme@test.com",
+            "password": "password123",
+            "full_name": "Rejected User",
+            "membership_type_id": mt.id,
+        })
+        assert resp.status_code == 201
+
+        admin_token = _login(c, "admin", "Admin123!")
+        members = c.get("/members", headers=_auth_header(admin_token)).json()
+        target = next(m for m in members if m["email"] == "rejectme@test.com")
+
+        resp = c.post(
+            f"/members/{target['id']}/reject", headers=_auth_header(admin_token)
+        )
+        assert resp.status_code == 204
+
+        # The signup is fully removed: no member record and no working login
+        members = c.get("/members", headers=_auth_header(admin_token)).json()
+        assert all(m["email"] != "rejectme@test.com" for m in members)
+        resp = c.post(
+            "/auth/login", data={"username": "rejectme", "password": "password123"}
+        )
+        assert resp.status_code == 401
+
+    def test_approve_member_without_linked_user_succeeds(self, db_session):
+        """A pending member record with no login yet can still be approved."""
+        from app.models import Member
+        db = db_session
+        mt = _seed_membership_type(db)
+        _seed_admin_user(db)
+
+        pending = Member(
+            full_name="No Login Yet",
+            email="nologin@test.com",
+            membership_type_id=mt.id,
+            is_active=False,
+        )
+        db.add(pending)
+        db.commit()
+        db.refresh(pending)
+
+        c = _client()
+        admin_token = _login(c, "admin", "Admin123!")
+        resp = c.post(
+            f"/members/{pending.id}/approve", headers=_auth_header(admin_token)
+        )
+        assert resp.status_code == 200
+        assert resp.json()["is_active"] is True
+
+    def test_approve_active_member_returns_400(self, db_session):
+        """Approving an already-active member violates the approval rule."""
+        db = db_session
+        mt = _seed_membership_type(db)
+        _seed_admin_user(db)
+
+        c = _client()
+        admin_token = _login(c, "admin", "Admin123!")
+        resp = c.post("/members", json={
+            "full_name": "Direct Member",
+            "email": "direct@test.com",
+            "membership_type_id": mt.id,
+        }, headers=_auth_header(admin_token))
+        assert resp.status_code == 201
+        member_id = resp.json()["id"]
+
+        resp = c.post(
+            f"/members/{member_id}/approve", headers=_auth_header(admin_token)
+        )
+        assert resp.status_code == 400
+        assert "already approved" in resp.json()["detail"].lower()
+
+    def test_reject_active_member_returns_400(self, db_session):
+        """Only pending registrations may be rejected, never active members."""
+        db = db_session
+        mt = _seed_membership_type(db)
+        _seed_admin_user(db)
+
+        c = _client()
+        admin_token = _login(c, "admin", "Admin123!")
+        resp = c.post("/members", json={
+            "full_name": "Active Member",
+            "email": "active@test.com",
+            "membership_type_id": mt.id,
+        }, headers=_auth_header(admin_token))
+        assert resp.status_code == 201
+        member_id = resp.json()["id"]
+
+        resp = c.post(
+            f"/members/{member_id}/reject", headers=_auth_header(admin_token)
+        )
+        assert resp.status_code == 400
+        assert "pending" in resp.json()["detail"].lower()
 
     def test_login_wrong_password(self, db_session):
         _seed_admin_user(db_session)
