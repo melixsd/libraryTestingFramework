@@ -6,3 +6,7 @@ Library/server.log
 /tmp/
 /home/
 /e2e-reports.zip
+
+# Thesis build workspace (generated PDFs, crops, node_modules); the final
+# documents it produces live in docs/
+/thesis_build/
