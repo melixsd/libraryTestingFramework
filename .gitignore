@@ -10,3 +10,9 @@ Library/server.log
 # Thesis build workspace (generated PDFs, crops, node_modules); the final
 # documents it produces live in docs/
 /thesis_build/
+
+# Test-run artifact: rewritten on every pytest run; CI generates its own
+/LibraryTestFramework/coverage.json
+
+# MS Office lock/temp files (~$...docx while a document is open in Word)
+~$*
